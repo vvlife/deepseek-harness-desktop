@@ -61,11 +61,11 @@
   <div class="badges">
     <span class="badge">macOS 12+（Apple Silicon / Intel）</span>
     <span class="badge">MIT（内置组件见许可页）</span>
-    <span class="badge">v0.3.1</span>
+    <span class="badge">v0.3.2</span>
   </div>
 
   <div class="cta">
-    <a class="btn" href="https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.1.dmg">⬇ 下载 DMG（约 350MB）</a>
+    <a class="btn" href="https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.2.dmg">⬇ 下载 DMG（约 350MB）</a>
     <a class="btn ghost" href="https://github.com/vvlife/deepseek-harness-desktop">GitHub 仓库</a>
   </div>
   <p style="margin-top:14px;font-size:13px;color:var(--dim)">
@@ -83,10 +83,10 @@
 <section>
   <h2>为什么是它</h2>
   <div class="grid">
-    <div class="card"><h3>📱 手机直连 agent</h3><p>内置完整 Paseo（daemon + 移动端配对）。设置页一键生成配对二维码，手机 Paseo App 扫码即连——出门在外也能给 agent 派活。</p></div>
+    <div class="card"><h3>📱 手机直连 agent</h3><p>内置完整 Paseo（daemon + 移动端配对）。Harness Web 界面一键生成配对二维码，手机 Paseo App 扫码即连，对话实时同步——出门在外也能给 agent 派活。</p></div>
     <div class="card"><h3>📦 真·开箱即用</h3><p>Node 运行时、完整 dsh、完整 Paseo 全在包里。不需要 Homebrew、不需要 npm、不需要任何预装。</p></div>
-    <div class="card"><h3>🙅 不做强行向导</h3><p>首次打开直接进 Paseo 界面，「DeepSeek Harness」provider 已就位。要用时按 <span class="inline-code">⌘,</span> 选提供商、粘贴 Key，保存即重启生效。</p></div>
-    <div class="card"><h3>🔌 提供商可选</h3><p>DeepSeek 官方（默认）/ Agnes AI / 任意 OpenAI 兼容端点。随时在设置页切换，互不影响。</p></div>
+    <div class="card"><h3>🖥 双界面一键切换</h3><p>Paseo 界面管 agent、Harness Web（dsh 自带界面）管模型与插件，顶部一键切换。LLM Key 在 Harness Web 的「模型」设置里填，保存即用。</p></div>
+    <div class="card"><h3>🔌 提供商可选</h3><p>DeepSeek 官方（默认）/ Agnes AI / 任意 OpenAI 兼容端点。随时在 Harness Web 的模型设置里切换，互不影响。</p></div>
     <div class="card"><h3>🛡 与本机环境隔离</h3><p>私有 PASEO_HOME / DSH_HOME 与独立端口，不读不写 <span class="inline-code">~/.dsh</span>、<span class="inline-code">~/.paseo</span>；dsh 遥测默认关闭。</p></div>
     <div class="card"><h3>🧪 构建即全链路自测</h3><p>每个 DMG 打包时都用包内运行时真起 dsh web + Paseo daemon，注册 provider 并断言识别，全绿才发布。</p></div>
   </div>
@@ -97,7 +97,7 @@
   <div class="steps">
     <div class="step"><div><b>拖进应用程序</b><span>下载 DMG，打开，把鲸鱼图标拖进 Applications。就这一步。</span></div></div>
     <div class="step"><div><b>双击打开</b><span>内置 Paseo 界面直接出现在窗口里，「DeepSeek Harness」provider 已自动注册。新建 agent 选它即可。</span></div></div>
-    <div class="step"><div><b>配 Key，开聊</b><span>按 ⌘, 打开设置页，选提供商、点「获取 Key」建 key 后粘贴保存。想用手机？同一页生成配对二维码，Paseo App 扫码直连。</span></div></div>
+    <div class="step"><div><b>配 Key，开聊</b><span>切到 Harness Web 界面，在「模型」设置里粘贴 Key 保存。想用手机？点界面右上角手机图标生成配对二维码，Paseo App 扫码直连。</span></div></div>
   </div>
 </section>
 
@@ -105,8 +105,8 @@
   <h2>常见问题</h2>
   <div class="faq">
     <details><summary>DMG 为什么有 350MB？</summary><p>零前置依赖的代价：Node 运行时、完整 dsh、完整 Paseo（含 Apple Silicon / Intel 双架构原生模块）都在包里。换来不需要预装任何东西，也绝不污染你本机的开发环境。</p></details>
-    <details><summary>手机怎么连？</summary><p>设置页「生成配对二维码」→ 手机 Paseo App 扫码（或打开配对链接），经 Paseo 官方 relay 直连本 APP 的内置服务。退出 APP 后服务默认保持运行，移动端可继续连接。</p></details>
-    <details><summary>“DeepSeek 登录”是什么形式？</summary><p>DeepSeek API 没有账号 OAuth。设置页的「获取 Key」= 打开 platform.deepseek.com，登录你的 DeepSeek 账号创建 API Key 后粘贴。Key 只存本机 APP 私有的 <span class="inline-code">.credentials.yaml</span>（0600）。</p></details>
+    <details><summary>手机怎么连？</summary><p>Harness Web 界面右上角手机图标 →「生成配对二维码」→ 手机 Paseo App 扫码（或打开配对链接），经 Paseo 官方 relay 直连本 APP 的内置服务，端到端加密。退出 APP 后服务默认保持运行，移动端可继续连接。若提示超时，点「刷新配对码」立刻重扫。</p></details>
+    <details><summary>“DeepSeek 登录”是什么形式？</summary><p>DeepSeek API 没有账号 OAuth。去 platform.deepseek.com 登录账号、创建 API Key，粘贴到 Harness Web 界面的「模型」设置即可。Key 只存本机 APP 私有的 <span class="inline-code">.credentials.yaml</span>（0600）。</p></details>
     <details><summary>会动我本地的 dsh / Paseo 吗？</summary><p>不会。APP 用私有 home 与独立端口（避开 6767），与 <span class="inline-code">~/.dsh</span>、<span class="inline-code">~/.paseo</span> 完全无关，你已有的实例照常运行。</p></details>
     <details><summary>DMG 被 Gatekeeper 拦怎么办？</summary><p>APP 未做 Apple 公证。右键 → 打开；或系统设置 → 隐私与安全性 → 仍要打开；或 <span class="inline-code">xattr -d com.apple.quarantine /Applications/"DeepSeek Harness Desktop.app"</span>。介意的话可用上面的 curl 命令，不触发 Gatekeeper。</p></details>
     <details><summary>怎么卸载？</summary><p>停掉内置服务（APP 内置 paseo CLI daemon stop），APP 拖进废纸篓，再删 <span class="inline-code">~/Library/Application Support/DeepSeek Harness Desktop</span>。没有残留。</p></details>

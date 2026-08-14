@@ -74,7 +74,7 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 
 - 🌐 宣传站：https://dsh-desktop.vercel.app
 - 💾 最新 Release：https://github.com/vvlife/deepseek-harness-desktop/releases/latest
-- 📦 DMG 直链：https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.1.dmg
+- 📦 DMG 直链：https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.2.dmg
 - 🐙 源码仓库：https://github.com/vvlife/deepseek-harness-desktop
 
 欢迎提 Issue、PR，或者只是来点个赞。
@@ -96,4 +96,4 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 
 ---
 
-*最后更新：v0.3.1*
+*最后更新：v0.3.2*

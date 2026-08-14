@@ -19,21 +19,26 @@
 
 ## 安装（DMG，推荐）
 
-1. 下载 [DeepSeek-Harness-Desktop-0.3.1.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.1.dmg)（约 350MB，universal）
+1. 下载 [DeepSeek-Harness-Desktop-0.3.2.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.2.dmg)（约 350MB，universal）
 2. 打开 DMG，把 **DeepSeek Harness Desktop** 拖进 **Applications**
 3. 双击打开。未做 Apple 公证：macOS 15 首次打开需右键 → 打开，
    或「系统设置 → 隐私与安全性 → 仍要打开」
 
 打开后 APP 会启动内置 Paseo daemon（127.0.0.1 独立端口）并在窗口里显示 Paseo Web UI，
 「DeepSeek Harness」provider 已自动注册好。新建 agent 时选择它即可。
-要真正对话时：按 `⌘,` 打开设置页，选 provider、粘贴 API Key（「获取 Key」会帮你打开对应平台页面），
-保存后服务自动重启生效。
+工具栏可在「**Paseo / Harness Web**」两个界面间切换（Harness Web = dsh 自带的 Web 界面，
+同一私有 `DSH_HOME`）。要真正对话时：切到 **Harness Web** 界面 → 其内置设置的「模型」页
+粘贴 DeepSeek 官方或 Agnes 的 API Key，保存即可。
 
 ### 移动端直连（手机遥控 agent）
 
-设置页点「**生成配对二维码**」→ 用手机 Paseo App 扫码（或打开配对链接）即可连到本 APP 的
-内置服务（经 Paseo 官方 relay）。退出 APP 后内置服务**默认保持运行**，移动端可继续连接；
-不想让服务常驻可在设置页勾选「退出 APP 时停止内置服务」。
+切到 **Harness Web** 界面 → 右上角**手机图标** →「**生成配对二维码**」→ 用手机 Paseo App
+扫码（或打开配对链接）即可连到本 APP 的内置服务（经 Paseo 官方 relay，端到端加密）。
+Paseo 界面里的 agent 对话在手机与电脑之间**实时同步**；退出 APP 后内置服务**默认保持运行**，
+移动端可继续连接。若手机提示超时，点「刷新配对码」后立刻重扫（relay 重连窗口期会导致偶发超时）。
+
+> 注意：Harness Web（dsh web）里的对话是 dsh 自己的本地会话，不进 Paseo daemon，
+> 手机端看不到；需要手机同步的对话请在 Paseo 界面进行（provider 选「DeepSeek Harness」）。
 
 ### 备选：curl|bash 命令行安装器
 
@@ -52,8 +57,10 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 - Web UI 由 daemon 直接服务（`PASEO_WEB_UI_ENABLED` 等效配置已持久化到私有 config.json）
 - 私有 `DSH_HOME` 下的 ACP 桥 + wrapper 把 dsh 注册为 Paseo provider「DeepSeek Harness」，
   桥与 dsh 全部走 APP 内置 Node 运行时
-- 设置页（`⌘,`）：provider 选择与 API Key 保存（0600 凭据）、移动端配对二维码、
-  dsh 遥测开关（**默认关闭**）、退出行为开关
+- 双界面切换：Paseo Web UI 与 dsh web（Harness Web，独立端口 3180 起自动挑选）；
+  界面切换不影响 daemon，移动端连接与会话状态保持同步
+- LLM 提供商/API Key 在 Harness Web 界面的内置「模型」设置里配置（dsh 原生 UI）；
+  移动端配对二维码在 Harness Web 界面右上角手机图标里
 - 全部数据都在自己的 Application Support 目录，**不碰** `~/.dsh` / `~/.paseo`
 
 ## 关于"DeepSeek 登录"

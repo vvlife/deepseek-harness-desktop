@@ -34,8 +34,24 @@ private func bundledResource(_ path: String) -> String? {
 
 final class AppState: ObservableObject {
   static let shared = AppState()
-  @Published var showSettings = false
+  @Published var showPairing = false
   @Published var showOnboarding = false
+
+  enum ViewMode: String {
+    case paseo = "Paseo"
+    case harnessWeb = "Harness Web"
+  }
+
+  /// 当前展示的界面：Paseo Web UI / dsh web（Harness Web）。
+  /// 切换只是换「视图」——Paseo daemon 始终运行，移动端连接不受影响。
+  @Published var viewMode: ViewMode {
+    didSet { UserDefaults.standard.set(viewMode.rawValue, forKey: "viewMode") }
+  }
+
+  private init() {
+    let stored = UserDefaults.standard.string(forKey: "viewMode")
+    viewMode = ViewMode(rawValue: stored ?? "") ?? .paseo
+  }
 }
 
 private enum AppError: LocalizedError {
@@ -135,8 +151,21 @@ final class DaemonManager: ObservableObject {
         trail("prepareEnvironment ✔")
         try await ensureProviderRegistered()
         trail("ensureProviderRegistered ✔")
-        try await runCLI(["daemon", "start"], step: "启动内置服务")
-        trail("daemon start ✔，等待 Web UI")
+        // 默认退出不停服务，重开 APP 时 daemon 往往已在运行；
+        // `paseo daemon start` 非幂等（已运行会因端口占用失败），先探测再决定是否启动
+        if await Self.httpOK(webURL) {
+          trail("内置服务已在运行，直接复用")
+        } else {
+          do {
+            try await runCLI(["daemon", "start"], step: "启动内置服务")
+            trail("daemon start ✔，等待 Web UI")
+          } catch {
+            // 端口被旧 daemon（或无 Web UI 配置的残留进程）占用：restart 会先停后启
+            trail("daemon start 失败，改用 restart：\(error.localizedDescription)")
+            try await runCLI(["daemon", "restart"], step: "重启内置服务")
+            trail("daemon restart ✔，等待 Web UI")
+          }
+        }
         if await pollWebReady(seconds: 120) {
           trail("Web UI 就绪")
           await reconcileWebDataIfNeeded()
@@ -338,6 +367,109 @@ final class DaemonManager: ObservableObject {
     return link
   }
 
+  // MARK: dsh web（Harness Web 界面，与 Paseo 并存的第二视图）
+
+  enum DshWebState: Equatable {
+    case idle
+    case starting
+    case running
+    case failed(String)
+  }
+
+  @Published private(set) var dshWebState: DshWebState = .idle
+  private var dshWebProcess: Process?
+  private var dshWebBooting = false
+
+  /// dsh web 端口：独立于 Paseo 与用户本机 dsh（默认 3080），首次选定后持久化
+  var dshWebPort: Int {
+    let stored = UserDefaults.standard.integer(forKey: "dshWebPort")
+    if stored > 0 { return stored }
+    let picked = Self.findFreePort(startingAt: 3180) ?? 3180
+    UserDefaults.standard.set(picked, forKey: "dshWebPort")
+    return picked
+  }
+
+  var dshWebURL: URL { URL(string: "http://127.0.0.1:\(dshWebPort)/")! }
+
+  /// 按需启动 dsh web（同一私有 DSH_HOME，Agnes/DeepSeek 凭据直接生效）。
+  /// 已在运行（含 APP 异常退出遗留的进程）则直接复用；异常退出后再次进入视图会自动拉起。
+  func startDshWeb() {
+    if case .running = dshWebState { return }
+    guard !dshWebBooting else { return }
+    guard let node = nodePath,
+          let dshEntry = bundledResource("runtime/dsh/lib/bin.js")
+    else {
+      dshWebState = .failed("找不到内置 dsh 运行时（应用包不完整）。")
+      return
+    }
+    dshWebBooting = true
+    dshWebState = .starting
+    trail("startDshWeb()（port=\(dshWebPort)）")
+
+    Task {
+      defer { dshWebBooting = false }
+      // 已有健康实例（上次启动的或 APP 异常退出遗留的）：直接复用，避免端口冲突
+      if await Self.httpOK(dshWebURL) {
+        trail("dsh web 已在运行，直接复用")
+        dshWebState = .running
+        return
+      }
+      let task = Process()
+      task.executableURL = URL(fileURLWithPath: node)
+      task.arguments = [dshEntry, "web", "--host", "127.0.0.1", "--port", "\(dshWebPort)"]
+      var env = processEnv()
+      env["DSH_TELEMETRY_DISABLED"] = telemetryEnabled ? "0" : "1"
+      task.environment = env
+      task.standardOutput = FileHandle.nullDevice
+      task.standardError = FileHandle.nullDevice
+      task.terminationHandler = { [weak self] terminated in
+        Task { @MainActor in
+          guard let self, self.dshWebProcess === terminated else { return }
+          self.dshWebProcess = nil
+          if case .running = self.dshWebState {
+            self.dshWebState = .idle
+            self.trail("dsh web 进程退出")
+            // 用户正停在该界面：自动重新拉起（adopt-first 保证不会与残留进程冲突）
+            if AppState.shared.viewMode == .harnessWeb { self.startDshWeb() }
+          }
+        }
+      }
+      do {
+        try task.run()
+        dshWebProcess = task
+      } catch {
+        dshWebState = .failed("dsh web 启动失败：\(error.localizedDescription)")
+        return
+      }
+      let ok = await Self.pollHTTP(dshWebURL, seconds: 120)
+      if ok {
+        trail("dsh web 就绪")
+        dshWebState = .running
+      } else if let task = dshWebProcess, !task.isRunning {
+        trail("dsh web 进程已退出")
+        dshWebState = .failed("dsh web 启动后退出。可切回 Paseo 视图后再试。")
+      } else {
+        trail("dsh web 超时未就绪（进程仍在）")
+        dshWebState = .failed("dsh web 启动较慢，仍在初始化。点「重试」即可（会直接接管已就位的进程）。")
+      }
+    }
+  }
+
+  /// 退出时停止 dsh web 子进程（主线程调用，随 APP 退出，不留孤儿进程）
+  func stopDshWeb() {
+    guard let task = dshWebProcess, task.isRunning else { return }
+    task.terminate()
+    dshWebProcess = nil
+  }
+
+  private static func pollHTTP(_ url: URL, seconds: Int) async -> Bool {
+    for _ in 0..<seconds {
+      if await httpOK(url) { return true }
+      try? await Task.sleep(nanoseconds: 1_000_000_000)
+    }
+    return false
+  }
+
   private func pollWebReady(seconds: Int) async -> Bool {
     for _ in 0..<seconds {
       if await Self.httpOK(webURL) { return true }
@@ -472,206 +604,83 @@ private struct WebView: NSViewRepresentable {
 }
 
 // ---------------------------------------------------------------------------
-// 设置页（provider / 凭据 / 移动端配对 / 遥测）
+// 移动端直连子页面（Harness Web 界面工具栏「手机」图标打开）
 // ---------------------------------------------------------------------------
-private enum ProviderChoice: String, CaseIterable, Identifiable {
-  case deepseek = "DeepSeek 官方"
-  case agnes = "Agnes AI"
-  case custom = "自定义端点"
-  var id: String { rawValue }
-  var flag: String {
-    switch self {
-    case .deepseek: return "deepseek"
-    case .agnes: return "agnes"
-    case .custom: return "custom"
-    }
-  }
-  var keyPage: URL? {
-    switch self {
-    case .deepseek: return URL(string: "https://platform.deepseek.com/api_keys")
-    case .agnes: return URL(string: "https://platform.agnes-ai.com")
-    case .custom: return nil
-    }
-  }
-  var keyPlaceholder: String {
-    switch self {
-    case .deepseek: return "sk-...（DeepSeek API Key）"
-    case .agnes: return "sk-...（Agnes API Key）"
-    case .custom: return "sk-...（该端点的 API Key）"
-    }
-  }
-}
-
-private struct SettingsView: View {
-  @State private var provider: ProviderChoice = .deepseek
-  @State private var key = ""
-  @State private var baseURL = ""
-  @State private var model = ""
-  @State private var telemetry = UserDefaults.standard.bool(forKey: "telemetryEnabled")
-  @State private var stopOnQuit = UserDefaults.standard.bool(forKey: "stopDaemonOnQuit")
-  @State private var busy = false
-  @State private var status = ""
-  @State private var pairBusy = false
-  @State private var pairError = ""
+private struct PairingSheet: View {
   @ObservedObject private var daemon = DaemonManager.shared
-
-  private var customValid: Bool {
-    provider != .custom ||
-      ((baseURL.hasPrefix("http://") || baseURL.hasPrefix("https://")) && !model.isEmpty)
-  }
+  @State private var busy = false
+  @State private var pairError = ""
+  let onClose: () -> Void
 
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 14) {
-        Text("LLM 提供商").font(.headline)
-        Picker("LLM 提供商", selection: $provider) {
-          ForEach(ProviderChoice.allCases) { Text($0.rawValue).tag($0) }
+    VStack(alignment: .leading, spacing: 16) {
+      HStack(spacing: 10) {
+        Image(systemName: "iphone").font(.system(size: 28))
+        VStack(alignment: .leading, spacing: 2) {
+          Text("移动端直连").font(.title3.weight(.bold))
+          Text("用手机 Paseo App 遥控本 APP 的 agent").font(.caption).foregroundStyle(.secondary)
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
+      }
 
-        if provider == .custom {
-          TextField("baseURL（如 https://api.example.com/v1）", text: $baseURL)
-            .textFieldStyle(.roundedBorder)
-          TextField("模型 id（如 gpt-4o-mini）", text: $model)
-            .textFieldStyle(.roundedBorder)
-        }
-
-        HStack(spacing: 8) {
-          SecureField(provider.keyPlaceholder, text: $key)
-            .textFieldStyle(.roundedBorder)
-          if let url = provider.keyPage {
-            Button("获取 Key") { NSWorkspace.shared.open(url) }
-          }
-        }
-        Text(key.isEmpty
-          ? "Key 留空则只保存 provider 选择，不改动已有凭据。"
-          : "Key 只写入本机 APP 私有的 .credentials.yaml（权限 0600），不会外传。")
-          .font(.caption)
-          .foregroundStyle(.secondary)
-
-        HStack(spacing: 10) {
-          Button(action: saveProvider) {
-            Label(busy ? "保存中…" : "保存并重启服务", systemImage: "checkmark.circle")
-          }
-          .buttonStyle(.borderedProminent)
-          .disabled(busy || pairBusy || !customValid)
-          .keyboardShortcut(.defaultAction)
-          if busy { ProgressView().scaleEffect(0.8) }
-        }
-
-        Divider()
-        Text("移动端直连（Paseo App 配对）").font(.headline)
-        Text("生成配对链接/二维码，用手机 Paseo App 扫码即可连到本 APP 的内置服务（经官方 relay）。退出本 APP 后服务默认保持运行，移动端可继续连接。")
-          .font(.caption)
-          .foregroundStyle(.secondary)
-        HStack(spacing: 10) {
-          Button(action: generatePairing) {
-            Label(pairBusy ? "生成中…" : "生成配对二维码", systemImage: "qrcode")
-          }
-          .disabled(busy || pairBusy)
-          if pairBusy { ProgressView().scaleEffect(0.8) }
-        }
-        if let link = daemon.pairingLink {
-          HStack(alignment: .top, spacing: 14) {
-            if let qr = Self.qrImage(from: link) {
-              Image(nsImage: qr)
-                .resizable()
-                .interpolation(.none)
-                .frame(width: 132, height: 132)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-            VStack(alignment: .leading, spacing: 6) {
-              Text(link).font(.system(.caption, design: .monospaced))
-                .textSelection(.enabled)
-                .lineLimit(4)
-              HStack {
-                Button("复制链接") {
-                  NSPasteboard.general.clearContents()
-                  NSPasteboard.general.setString(link, forType: .string)
-                }
-                Button("在浏览器打开") { NSWorkspace.shared.open(URL(string: link)!) }
-              }
-              .font(.caption)
-            }
-          }
-        }
-        if !pairError.isEmpty {
-          Text(pairError).font(.caption).foregroundStyle(.red)
-        }
-
-        Divider()
-        Toggle("允许 dsh 匿名遥测（默认关闭）", isOn: $telemetry)
-          .font(.caption)
-          .onChange(of: telemetry) { v in
-            UserDefaults.standard.set(v, forKey: "telemetryEnabled")
-            try? daemon.prepareBridge()
-          }
-        Toggle("退出 APP 时停止内置服务（默认保持运行，供移动端连接）", isOn: $stopOnQuit)
-          .font(.caption)
-          .onChange(of: stopOnQuit) { v in
-            UserDefaults.standard.set(v, forKey: "stopDaemonOnQuit")
-          }
-        HStack {
-          Button("查看入门引导") { AppState.shared.showOnboarding = true }
-          Button("打开数据目录") { NSWorkspace.shared.open(appSupportDir) }
-          Spacer()
-          Button("重启服务") { daemon.restart() }
-        }
+      Text("用手机 Paseo App 扫描下方二维码（或打开配对链接），即可连到本 APP 的内置服务（经 Paseo 官方 relay，端到端加密）。配对后，Paseo 界面里的所有 agent 对话在手机与电脑之间实时同步。退出本 APP 后服务默认保持运行，手机可继续连接。")
         .font(.callout)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
 
-        if !status.isEmpty {
-          Divider()
-          ScrollView {
-            Text(status)
-              .font(.system(.caption, design: .monospaced))
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .textSelection(.enabled)
+      if let link = daemon.pairingLink {
+        HStack(alignment: .top, spacing: 16) {
+          if let qr = Self.qrImage(from: link) {
+            Image(nsImage: qr)
+              .resizable()
+              .interpolation(.none)
+              .frame(width: 168, height: 168)
+              .background(Color.white)
+              .clipShape(RoundedRectangle(cornerRadius: 8))
           }
-          .frame(maxHeight: 160)
-          .background(Color(nsColor: .textBackgroundColor))
-          .clipShape(RoundedRectangle(cornerRadius: 8))
+          VStack(alignment: .leading, spacing: 8) {
+            Text(link).font(.system(.caption, design: .monospaced))
+              .textSelection(.enabled)
+              .lineLimit(5)
+            HStack {
+              Button("复制链接") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(link, forType: .string)
+              }
+              Button("在浏览器打开") { NSWorkspace.shared.open(URL(string: link)!) }
+            }
+            .font(.caption)
+          }
         }
       }
-      .padding(20)
-    }
-    .frame(width: 640, height: 640)
-  }
 
-  private func providerArgs() -> [String] {
-    var args = ["--provider", provider.flag, "--yes"]
-    let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
-    if trimmed.isEmpty {
-      args.append("--skip-auth")
-    } else {
-      args += ["--key", trimmed]
-    }
-    if provider == .custom {
-      args += ["--base-url", baseURL.trimmingCharacters(in: .whitespacesAndNewlines),
-               "--model", model.trimmingCharacters(in: .whitespacesAndNewlines)]
-    }
-    args += ["--bridge-command", daemon.bridgeWrapperPath]
-    return args
-  }
-
-  private func saveProvider() {
-    busy = true
-    status = ""
-    Task {
-      do {
-        let out = try await daemon.runSetupProvider(args: providerArgs(), step: "保存 provider")
-        status = out
-        daemon.restart()
-      } catch {
-        status = error.localizedDescription
+      if !pairError.isEmpty {
+        Text(pairError).font(.caption).foregroundStyle(.red)
       }
-      busy = false
+
+      Text("手机提示超时？relay 链路可能正在重连，点「刷新配对码」后立刻扫码重试；多次失败请检查电脑/手机网络（需能访问 relay.paseo.sh）。")
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+
+      HStack {
+        Button(action: generate) {
+          Label(busy ? "生成中…" : (daemon.pairingLink == nil ? "生成配对二维码" : "刷新配对码"),
+                systemImage: "qrcode")
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(busy)
+        if busy { ProgressView().scaleEffect(0.8) }
+        Spacer()
+        Button("完成") { onClose() }.keyboardShortcut(.defaultAction)
+      }
     }
+    .padding(24)
+    .frame(width: 520)
+    .onAppear { if daemon.pairingLink == nil, !busy { generate() } }
   }
 
-  private func generatePairing() {
-    pairBusy = true
+  private func generate() {
+    busy = true
     pairError = ""
     Task {
       do {
@@ -679,7 +688,7 @@ private struct SettingsView: View {
       } catch {
         pairError = error.localizedDescription
       }
-      pairBusy = false
+      busy = false
     }
   }
 
@@ -729,7 +738,7 @@ private struct OnboardingView: View {
 
       GroupBox {
         VStack(alignment: .leading, spacing: 8) {
-          Text("要让 agent 真正对话，需要配一个 LLM 提供商：按 ⌘, 打开设置 → 选 DeepSeek 官方 / Agnes AI / 自定义端点 → 粘贴 API Key（「获取 Key」会打开对应平台页面）→「保存并重启服务」。配一次即可，以后直接用。")
+          Text("要让 agent 真正对话，需要配一个 LLM 提供商：顶部切到「Harness Web」界面 → 打开其内置设置（左侧边栏齿轮/「模型」）→ 填入 DeepSeek 官方或 Agnes 的 API Key 保存即可。配一次，两个界面通用。")
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -741,7 +750,7 @@ private struct OnboardingView: View {
 
       GroupBox {
         VStack(alignment: .leading, spacing: 8) {
-          Text("设置页点「生成配对二维码」，用手机 Paseo App 扫码即可远程连到本 APP 的内置服务。退出 APP 后服务默认保持运行，手机可继续连接。")
+          Text("顶部切到「Harness Web」界面 → 右上角手机图标 → 生成配对二维码，用手机 Paseo App 扫码即可远程连到本 APP 的内置服务。Paseo 界面里的 agent 对话在手机与电脑之间实时同步；退出 APP 后服务默认保持运行，手机可继续连接。")
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -752,10 +761,6 @@ private struct OnboardingView: View {
       }
 
       HStack {
-        Button("查看设置（⌘,）") {
-          onClose()
-          AppState.shared.showSettings = true
-        }
         Spacer()
         Button("开始使用") { onClose() }
           .buttonStyle(.borderedProminent)
@@ -773,7 +778,14 @@ private struct OnboardingView: View {
 private struct ContentView: View {
   @ObservedObject private var appState = AppState.shared
   @ObservedObject private var daemon = DaemonManager.shared
-  @StateObject private var web = WebController()
+  @StateObject private var paseoWeb = WebController()
+  @StateObject private var harnessWeb = WebController()
+  /// Harness Web 的 WebView 一旦创建就常驻（隐藏而非销毁），切换界面不丢会话状态
+  @State private var harnessWebCreated = false
+
+  private var activeWeb: WebController {
+    appState.viewMode == .harnessWeb ? harnessWeb : paseoWeb
+  }
 
   var body: some View {
     Group {
@@ -789,7 +801,29 @@ private struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       case .running(let url):
-        WebView(url: url, controller: web)
+        ZStack {
+          // Paseo 视图常驻：守护进程与移动端连接不受界面切换影响
+          WebView(url: url, controller: paseoWeb)
+            .opacity(appState.viewMode == .paseo ? 1 : 0)
+            .allowsHitTesting(appState.viewMode == .paseo)
+
+          if appState.viewMode == .harnessWeb {
+            harnessWebContent
+          }
+        }
+        .onAppear {
+          if appState.viewMode == .harnessWeb, daemon.dshWebState != .running {
+            daemon.startDshWeb()
+          }
+        }
+        .onChange(of: appState.viewMode) { mode in
+          if mode == .harnessWeb, daemon.dshWebState != .running {
+            daemon.startDshWeb()
+          }
+        }
+        .onChange(of: daemon.dshWebState) { state in
+          if state == .running { harnessWebCreated = true }
+        }
       case .failed(let message):
         VStack(alignment: .leading, spacing: 12) {
           Label("内置服务未能运行", systemImage: "exclamationmark.triangle.fill")
@@ -817,17 +851,29 @@ private struct ContentView: View {
     .frame(minWidth: 960, idealWidth: 1100, maxWidth: .infinity,
            minHeight: 640, idealHeight: 760, maxHeight: .infinity)
     .toolbar {
+      ToolbarItemGroup(placement: .principal) {
+        Picker("界面", selection: $appState.viewMode) {
+          Text(AppState.ViewMode.paseo.rawValue).tag(AppState.ViewMode.paseo)
+          Text(AppState.ViewMode.harnessWeb.rawValue).tag(AppState.ViewMode.harnessWeb)
+        }
+        .pickerStyle(.segmented)
+        .frame(width: 220)
+        .disabled(!isDaemonRunning)
+      }
       ToolbarItemGroup {
-        Button { web.reload() } label: { Label("重载", systemImage: "arrow.clockwise") }
+        if appState.viewMode == .harnessWeb {
+          Button { appState.showPairing = true } label: { Label("移动端直连", systemImage: "iphone") }
+            .disabled(!isDaemonRunning)
+        }
+        Button { activeWeb.reload() } label: { Label("重载", systemImage: "arrow.clockwise") }
           .keyboardShortcut("r", modifiers: .command)
-          .disabled(web.webView == nil)
-        Button { web.openInBrowser() } label: { Label("在浏览器打开", systemImage: "safari") }
-          .disabled(web.webView == nil)
-        Button { appState.showSettings = true } label: { Label("设置", systemImage: "gear") }
+          .disabled(activeWeb.webView == nil)
+        Button { activeWeb.openInBrowser() } label: { Label("在浏览器打开", systemImage: "safari") }
+          .disabled(activeWeb.webView == nil)
       }
     }
-    .sheet(isPresented: $appState.showSettings) {
-      SettingsView()
+    .sheet(isPresented: $appState.showPairing) {
+      PairingSheet { appState.showPairing = false }
     }
     .sheet(isPresented: $appState.showOnboarding) {
       OnboardingView {
@@ -842,6 +888,37 @@ private struct ContentView: View {
       }
     }
   }
+
+  /// Harness Web 视图内容（dsh web）。WebView 常驻，仅首次进入时拉起服务。
+  @ViewBuilder
+  private var harnessWebContent: some View {
+    switch daemon.dshWebState {
+    case .running where harnessWebCreated:
+      WebView(url: daemon.dshWebURL, controller: harnessWeb)
+    case .failed(let message):
+      VStack(spacing: 12) {
+        Label("Harness Web 未能运行", systemImage: "exclamationmark.triangle.fill")
+          .font(.title3.weight(.bold))
+        Text(message).foregroundStyle(.secondary)
+        Button("重试") { daemon.startDshWeb() }.buttonStyle(.borderedProminent)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Color(nsColor: .windowBackgroundColor))
+    default:
+      VStack(spacing: 14) {
+        ProgressView()
+        Text("正在启动 Harness Web…").foregroundStyle(.secondary)
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Color(nsColor: .windowBackgroundColor))
+    }
+  }
+
+  /// 工具栏 disabled 绑定用
+  private var isDaemonRunning: Bool {
+    if case .running = daemon.state { return true }
+    return false
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -855,7 +932,11 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     Task { @MainActor in DaemonManager.shared.start() }
   }
   func applicationWillTerminate(_ notification: Notification) {
-    // 默认保持内置服务运行（移动端可继续连接）；用户勾选「退出时停止服务」才停
+    MainActor.assumeIsolated {
+      // dsh web 是 APP 直接拉起的子进程，退出时必停（移动端不走它，无需保留）
+      DaemonManager.shared.stopDshWeb()
+    }
+    // 默认保持内置 Paseo 服务运行（移动端可继续连接）；用户勾选「退出时停止服务」才停
     if UserDefaults.standard.bool(forKey: "stopDaemonOnQuit") {
       DaemonManager.shared.stopImmediate()
     }
@@ -869,12 +950,6 @@ private struct DSHDesktopApp: App {
   var body: some Scene {
     WindowGroup("DeepSeek Harness Desktop") {
       ContentView()
-    }
-    .commands {
-      CommandGroup(replacing: .appSettings) {
-        Button("设置…") { AppState.shared.showSettings = true }
-          .keyboardShortcut(",", modifiers: .command)
-      }
     }
   }
 }

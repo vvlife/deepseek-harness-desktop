@@ -19,7 +19,7 @@ APP_SRC="$ROOT/app"
 BUILD="$APP_SRC/build"
 APP="$BUILD/DeepSeek Harness Desktop.app"
 BIN="DSHDesktop"
-VERSION="${1:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.3.1)}"
+VERSION="${1:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.3.2)}"
 DMG="$BUILD/DeepSeek-Harness-Desktop-${VERSION}.dmg"
 
 NODE_VERSION="22.22.1"
