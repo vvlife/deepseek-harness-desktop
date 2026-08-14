@@ -63,7 +63,7 @@ if [ -n "$SOURCE" ] && [ -f "$SOURCE" ] && [ -d "$(dirname "$SOURCE")/scripts" ]
   REPO_DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
 else
   REF="${INSTALL_REF:-main}"
-  log "下载仓库文件（$REPO@$REF）"
+  log "下载仓库文件（${REPO}@${REF}）"
   curl -fSL "https://codeload.github.com/$REPO/tar.gz/$REF" -o "$WORK/repo.tar.gz" \
     || die "下载失败，请检查网络或 INSTALL_REF"
   tar -xzf "$WORK/repo.tar.gz" -C "$WORK"
@@ -129,7 +129,7 @@ if [ "$SKIP_DSH" = 1 ]; then
 elif [ "${DSH_BIN:-}" = "" ] && command -v dsh >/dev/null 2>&1 && [ "$(dsh --version 2>/dev/null)" = "$DSH_VERSION" ]; then
   ok "dsh $DSH_VERSION 已安装"
 else
-  log "安装 dsh（npm i -g $DSH_PKG，约 340MB，请稍候）"
+  log "安装 dsh（npm i -g ${DSH_PKG}，约 340MB，请稍候）"
   npm install -g "$DSH_PKG" || die "dsh 安装失败"
   ok "dsh $(dsh --version 2>/dev/null || echo "$DSH_VERSION")"
 fi
@@ -146,7 +146,7 @@ else
   else
     arch="$(uname -m)"; [ "$arch" = "arm64" ] || arch="x64"
     url="https://github.com/getpaseo/paseo/releases/download/v${PASEO_DMG_VERSION}/Paseo-${PASEO_DMG_VERSION}-${arch}.dmg"
-    log "安装 Paseo（官方 DMG：$url）"
+    log "安装 Paseo（官方 DMG：${url}）"
     curl -fSL "$url" -o "$WORK/paseo.dmg" || die "Paseo DMG 下载失败"
     mnt="$WORK/paseo-mnt"; mkdir -p "$mnt"
     hdiutil attach "$WORK/paseo.dmg" -mountpoint "$mnt" -nobrowse -quiet || die "DMG 挂载失败"
