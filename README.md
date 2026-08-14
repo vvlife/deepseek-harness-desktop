@@ -1,18 +1,32 @@
 # DeepSeek Harness Desktop
 
-一行命令，把 **DeepSeek Harness（dsh）+ Paseo** 装好并接通：打开 Paseo，新建 agent 选
+**[🐋 宣传站](https://vvlife.github.io/deepseek-harness-desktop/)** ·
+**[⬇ DMG 下载](https://github.com/vvlife/deepseek-harness-desktop/releases/latest)** ·
+[Release Notes](https://github.com/vvlife/deepseek-harness-desktop/releases)
+
+一行命令（或双击 DMG），把 **DeepSeek Harness（dsh）+ Paseo** 装好并接通：打开 Paseo，新建 agent 选
 **DeepSeek Harness** 即可使用。LLM 提供商在安装向导中可选：**DeepSeek 官方（默认）/
 Agnes AI / 自定义 OpenAI 兼容端点**。
 
 > One-line macOS installer for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > + [Paseo](https://github.com/getpaseo/paseo): installs dsh (pinned), Paseo, and a zero-dependency
 > ACP bridge, then walks you through picking an LLM provider and pasting an API key.
+> Also available as a tiny native SwiftUI DMG installer.
 
 ## 一键安装
+
+方式一：终端一行命令（无 Gatekeeper 提示，推荐）
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/main/install.sh | bash
 ```
+
+方式二：DMG 图形安装器（原生 SwiftUI，universal，约 330KB）
+
+下载 [DeepSeek-Harness-Desktop-0.2.0.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.2.0.dmg)
+打开，选 provider、填/留空 Key，点「开始安装」。
+未做 Apple 公证：macOS 15 首次打开需「系统设置 → 隐私与安全性 → 仍要打开」，
+或 `xattr -d com.apple.quarantine "DeepSeek Harness Desktop Installer.app"`。
 
 安装器会依次：
 
@@ -81,8 +95,9 @@ node scripts/smoke-test.mjs --e2e          # 追加一次真实 dsh 调用（消
 
 ## FAQ
 
-**会被 Gatekeeper 拦吗？** 不会。`curl | bash` 不经过 Gatekeeper；dsh/Paseo 分别从 npm 与
-官方签名 DMG 原样安装。
+**会被 Gatekeeper 拦吗？** curl 方式不会（不经过 Gatekeeper）。DMG 图形安装器是 ad-hoc 签名、
+未公证：macOS 15 首次打开需「系统设置 → 隐私与安全性 → 仍要打开」或
+`xattr -d com.apple.quarantine` 该 app。dsh/Paseo 分别从 npm 与官方签名 DMG 原样安装。
 
 **Paseo 里的对话为什么没有上下文？** 每个 prompt 回合是一次独立的 `dsh --profile headless`
 运行（dsh headless 无 resume），回合间不保留对话上下文。
@@ -97,8 +112,8 @@ node scripts/smoke-test.mjs --e2e          # 追加一次真实 dsh 调用（消
 **想换 provider？** 重跑一次安装脚本（或 `node scripts/setup-provider.mjs`）选择新的即可，
 凭据层中已有的其他 key 不受影响。
 
-**GUI 安装包（DMG）？** 规划中（v2）。当前为 curl|sh 方案——无 Gatekeeper 摩擦，也是
-Homebrew/rustup/bun 的同款分发方式。
+**DMG 图形安装器在哪？** [Releases 页](https://github.com/vvlife/deepseek-harness-desktop/releases/latest)
+直接下载（`app/make-app.sh` 本地可复现构建：swiftc 直编 SwiftUI + ad-hoc 签名 + hdiutil）。
 
 ## 许可
 

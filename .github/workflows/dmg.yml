@@ -1,0 +1,26 @@
+name: dmg
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 构建 universal DMG（ad-hoc 签名）
+        run: bash app/make-app.sh "${GITHUB_REF_NAME#v}"
+
+      - name: 上传 DMG 到 Release（不存在则先创建）
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" app/build/*.dmg --clobber
