@@ -1,0 +1,46 @@
+name: test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 静态检查
+        run: |
+          bash -n install.sh
+          for f in bridge/*.mjs scripts/*.mjs; do node --check "$f"; done
+
+      - name: 隔离单测（临时 DSH_HOME / PASEO_HOME，无真实 dsh/paseo/凭据）
+        env:
+          DSH_HOME: ${{ runner.temp }}/dsh-home
+          PASEO_HOME: ${{ runner.temp }}/paseo-home
+        run: |
+          set -e
+          mkdir -p "$PASEO_HOME" "$DSH_HOME/paseo-bridge"
+          cp bridge/dsh-acp-bridge.mjs "$DSH_HOME/paseo-bridge/"
+          chmod 755 "$DSH_HOME/paseo-bridge/dsh-acp-bridge.mjs"
+          node scripts/setup-provider.mjs --provider deepseek --key sk-ci-test --yes
+          node scripts/setup-provider.mjs --provider agnes --key sk-ci-test --yes
+          node scripts/setup-provider.mjs --provider custom --base-url https://example.com/v1 --model test-model --key sk-ci-test --yes
+          node scripts/setup-provider.mjs --provider deepseek --yes
+          node scripts/smoke-test.mjs --require-paseo
+          node scripts/setup-provider.mjs --uninstall
+          test ! -f "$DSH_HOME/paseo-bridge/provider.json"
+          echo "uninstall ok"
+
+  full:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 完整安装（真装 dsh；跳过 Paseo 与凭据）
+        run: bash install.sh --yes --skip-auth --skip-paseo
+
+      - name: 冒烟自检（含 dsh --dump-config）
+        run: node scripts/smoke-test.mjs
