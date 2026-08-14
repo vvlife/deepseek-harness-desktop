@@ -1,6 +1,6 @@
 # DeepSeek Harness Desktop
 
-**[🐋 宣传站](https://vvlife.github.io/deepseek-harness-desktop/)** ·
+**[🐋 宣传站](https://dsh-desktop.vercel.app)** ·
 **[⬇ DMG 下载](https://github.com/vvlife/deepseek-harness-desktop/releases/latest)** ·
 [Release Notes](https://github.com/vvlife/deepseek-harness-desktop/releases)
 
