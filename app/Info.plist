@@ -7,13 +7,13 @@
 	<key>CFBundleDisplayName</key>
 	<string>DeepSeek Harness Desktop</string>
 	<key>CFBundleExecutable</key>
-	<string>DSHDesktopInstaller</string>
+	<string>DSHDesktop</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.vvlife.deepseek-harness-desktop</string>
+	<string>com.vvlife.dsh-desktop</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>DeepSeek Harness Desktop Installer</string>
+	<string>DeepSeek Harness Desktop</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

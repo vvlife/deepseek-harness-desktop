@@ -1,49 +1,49 @@
-# DeepSeek Harness Desktop：把 Paseo 和 dsh 一键装进 Mac
+# DeepSeek Harness Desktop：拖进「应用程序」即用，手机还能直连你的 agent
 
-> 一行命令 / 一个 DMG，让 Mac 立刻拥有本地 AI Harness 能力。
+> 内置 Paseo + 完整 dsh 的自包含 Mac APP。零前置依赖，打开即用，手机扫码就能遥控 agent。
 
 ---
 
 ## 你是不是也卡在这一步？
 
-[Paseo](https://github.com/paseo-project/paseo) 是个很有意思的本地模型 runtime，但官方文档默认你已经配好了 `dsh`（DeepSeek Harness）环境。
+想用 [DeepSeek Harness（dsh）](https://github.com/deepseek-ai/deepseek-harness) 搭一个能随时干活的本地 agent，结果：
 
-现实往往是：
+- 要先装 Node ≥22.19，再 `npm i -g` 一个 340MB 的 CLI；
+- 想要 [Paseo](https://github.com/getpaseo/paseo) 的移动端直连（手机上给 agent 派活），还得再装 Paseo、配 provider、对端口；
+- 装完发现和你本机已有的 dsh、Paseo daemon 搅在一起，谁占了 6767 端口都要查半天。
 
-- Homebrew 没装、Python 环境一团糟；
-- `pip install dsh` 报依赖冲突；
-- 终于跑起来，发现 Paseo daemon 和 CLI 版本对不上；
-- 想换个 DeepSeek API key，却不知道配置文件在哪。
+**DeepSeek Harness Desktop** 把这一整套收进一个 350MB 的 APP 里：
 
-**DeepSeek Harness Desktop** 就是为这种“我只想双击就能用”的时刻做的。
+**拖进「应用程序」，双击，完。手机扫个码，agent 随身走。**
 
 ---
 
 ## 它是什么？
 
-一个原生 SwiftUI 的 macOS 安装器 / 启动台：
+一个自包含的 macOS 桌面 APP（原生 SwiftUI 壳 + WKWebView）：
 
-- 一键装好 `dsh` CLI + Paseo 依赖；
-- 内置 ACP 桥，让 Paseo daemon 和 dsh 插件零配置通信；
-- 支持多种 LLM Provider：DeepSeek 官方 API、Agnes，或任意 OpenAI 兼容端点；
-- 不破坏你正在运行的 Paseo daemon；
-- 整个安装包只有 **331 KB**（universal binary），无 Electron、无 Docker、无 Python 虚拟环境。
+- **内置** universal Node v22 运行时、完整的 Paseo（daemon + Web UI + 移动端配对）和完整的 `@deepseek-ai/dsh`；
+- dsh 经零依赖 ACP 桥自动注册为 Paseo 的「**DeepSeek Harness**」provider，开箱就在列表里；
+- 打开即用——**不会**一进来就逼你填 provider；需要对话时按 `⌘,` 打开图形设置页自己配；
+- **移动端直连**：设置页一键生成配对二维码，手机 Paseo App 扫码即连（经官方 relay）；退出 APP 服务默认保持运行，移动端不掉线；
+- 数据目录完全私有、端口独立挑选（避开你本机 Paseo 的 6767），**不读不写** `~/.dsh`、`~/.paseo`；
+- dsh 遥测默认关闭。
 
 ---
 
-## 三步上手
+## 一分钟上手
 
-### 方式一：命令行（最快）
+1. 下载 DMG（约 350MB）：[Releases 页](https://github.com/vvlife/deepseek-harness-desktop/releases/latest)
+2. 打开，把鲸鱼拖进 **Applications**；
+3. 双击打开（未公证，首次需右键 → 打开）——Paseo 界面直接出现，「DeepSeek Harness」provider 已就位；
+4. 要聊天时：`⌘,` → 选 DeepSeek 官方 / Agnes / 自定义 OpenAI 兼容端点 → 粘贴 Key → 保存（服务自动重启生效）；
+5. 想用手机：同一页「生成配对二维码」→ 手机 Paseo App 扫码直连。
+
+偏爱终端的话，也保留了经典的 `curl | bash` 安装路线（装进系统 + 接通你已有的 Paseo，互不影响）：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/main/install.sh | bash
 ```
-
-### 方式二：图形化（最直观）
-
-1. 下载 DMG：[DeepSeek-Harness-Desktop-0.2.0.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.2.0.dmg)
-2. 拖到 Applications；
-3. 打开 App，填入 API Key，点击“Connect”。
 
 ---
 
@@ -51,19 +51,22 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 
 | 特性 | 说明 |
 |------|------|
-| **原生 SwiftUI** | 331 KB universal DMG，秒开 |
-| **LLM Provider 可选** | DeepSeek 官方 / Agnes / 自定义 OpenAI 兼容端点 |
-| **零依赖 ACP 桥** | Paseo daemon 与 dsh 插件直接通信 |
-| **热插拔** | 不重启正在运行的 Paseo 进程 |
-| **开源免费** | MIT 主协议，AGPL 第三方声明齐全 |
+| **📱 手机直连 agent** | 内置 Paseo daemon + 配对二维码，手机 App 扫码即连；退出 APP 服务默认常驻 |
+| **真·开箱即用** | Node + 完整 dsh + 完整 Paseo 都在包里，不需要 Homebrew/npm/任何预装 |
+| **不做强行向导** | 打开直接进界面，provider 已注册；要配 Key 时 ⌘, 设置页随时配 |
+| **提供商可选** | DeepSeek 官方 / Agnes / 任意 OpenAI 兼容端点，随时切换 |
+| **与环境隔离** | 私有 home + 独立端口，不碰 `~/.dsh`、`~/.paseo`；遥测默认关 |
+| **构建即全链路自测** | 每个 DMG 打包时真起 dsh + Paseo daemon 注册 provider 断言通过才发布 |
 
 ---
 
 ## 几个诚实的说明
 
-1. **DeepSeek 目前不支持 OAuth 登录**，所以只能贴 API Key。App 不会上传你的 key，只保存在本地钥匙串 / 配置文件中。
-2. **DMG 第一次打开可能触发 Gatekeeper**：因为暂时没做 Apple 公证。请右键 → 打开，或在“系统设置 > 隐私与安全性”中允许。
-3. **这不是 Paseo 官方项目**，是一个让 Paseo + dsh 更快跑起来的社区工具。
+1. **DMG 有 350MB**：零前置依赖的代价。Node 运行时 + 完整 dsh + 完整 Paseo（含双架构原生模块）都在里面。
+2. **DeepSeek 不支持 OAuth 登录**，只能贴 API Key。「获取 Key」按钮会帮你打开 platform.deepseek.com 建 key；key 只存本机 APP 私有凭据文件（0600），不外传。
+3. **未做 Apple 公证**：macOS 15 首次打开请右键 → 打开，或在「隐私与安全性」中允许。
+4. **Paseo 为 AGPL-3.0**：APP 内的 Paseo 组件是从官方 DMG 原样解包、未经修改的服务端部分，源码与许可见仓库 `THIRD-PARTY-LICENSES.md`。
+5. **这不是 DeepSeek / Paseo 官方项目**，是一个让两者在 Mac 上开箱即用的社区作品。
 
 ---
 
@@ -71,7 +74,7 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 
 - 🌐 宣传站：https://dsh-desktop.vercel.app
 - 💾 最新 Release：https://github.com/vvlife/deepseek-harness-desktop/releases/latest
-- 📦 DMG 直链：https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.2.0.dmg
+- 📦 DMG 直链：https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.0.dmg
 - 🐙 源码仓库：https://github.com/vvlife/deepseek-harness-desktop
 
 欢迎提 Issue、PR，或者只是来点个赞。
@@ -82,15 +85,15 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 
 ### 标题
 
-> DeepSeek Harness Desktop：331 KB 的 Mac 安装器，一键把 Paseo + dsh 跑起来。
+> DeepSeek Harness Desktop：内置 Paseo 的 dsh 桌面版——拖进应用程序即用，手机扫码直连你的 agent。
 
 ### 正文（140 字内）
 
-厌倦了给 Paseo 配 dsh 环境？DeepSeek Harness Desktop 用一个原生 SwiftUI App 解决：双击 DMG 装好 CLI、填 API Key 就能用。支持 DeepSeek 官方 / Agnes / 自定义 OpenAI 端点，不重启 Paseo daemon。开源免费，MIT 协议。
+想玩 DeepSeek Harness 又不想折腾环境？这个 Mac APP 把 Node、完整 dsh 和完整 Paseo 全打进一个包：拖进应用程序双击即用，provider 已注册好，⌘, 图形化配 Key。内置 Paseo 移动端配对——手机扫码，出门在外也能给 agent 派活。与本机已有 dsh/Paseo 完全隔离。
 
 🔗 https://dsh-desktop.vercel.app
 📦 https://github.com/vvlife/deepseek-harness-desktop/releases/latest
 
 ---
 
-*最后更新：v0.2.0*
+*最后更新：v0.3.0*

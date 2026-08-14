@@ -1,4 +1,5 @@
 app/build/
+app/.cache/
 .DS_Store
 
 # Local Netlify folder

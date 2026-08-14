@@ -119,6 +119,7 @@ if (flag("--help") || flag("-h")) {
   交互模式（默认）      node setup-provider.mjs
   非交互                --provider deepseek|agnes|custom --yes [--key sk-...]
                         [--base-url URL --model ID --provider-id ID --env-name NAME --display-name NAME]
+                        [--bridge-command PATH（Paseo 注册的桥启动命令，默认内置桥路径）]
   其他                  --skip-auth（不碰凭据）  --skip-paseo（不注册 Paseo）  --uninstall`);
   process.exit(0);
 }
@@ -254,7 +255,7 @@ function registerPaseo() {
     extends: "acp",
     label: "DeepSeek Harness",
     description: "dsh headless（DeepSeek Harness Desktop 的 ACP 桥）",
-    command: [BRIDGE_PATH],
+    command: [opt("--bridge-command") ?? BRIDGE_PATH],
   };
   writeFileSync(PASEO_CONFIG, JSON.stringify(config, null, 2) + "\n");
   ok(`Paseo provider "deepseek" 已写入 ${PASEO_CONFIG}（原配置备份为 .bak）`);
@@ -361,7 +362,8 @@ function uninstall() {
   if (existsSync(PASEO_CONFIG)) {
     const config = JSON.parse(readFileSync(PASEO_CONFIG, "utf8"));
     const entry = config?.agents?.providers?.deepseek;
-    if (entry && Array.isArray(entry.command) && entry.command[0] === BRIDGE_PATH) {
+    const knownCommands = [BRIDGE_PATH, join(BRIDGE_DIR, "bridge-wrapper.sh")];
+    if (entry && Array.isArray(entry.command) && knownCommands.includes(entry.command[0])) {
       copyFileSync(PASEO_CONFIG, PASEO_CONFIG + ".bak");
       delete config.agents.providers.deepseek;
       writeFileSync(PASEO_CONFIG, JSON.stringify(config, null, 2) + "\n");
