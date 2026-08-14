@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 构建自包含的 DeepSeek Harness Desktop.app（universal）并打成 DMG。
 #
-#   app/make-app.sh [版本号]      # 默认取 git describe 或 0.3.0
+#   app/make-app.sh [版本号]      # 默认取 git describe 或 0.3.1
 #
 # APP 内置 universal Node 运行时、完整 Paseo（daemon + Web UI + 移动端直连）
 # 与完整 dsh（作为 Paseo 的 agent provider，经 ACP 桥接入）。
@@ -19,7 +19,7 @@ APP_SRC="$ROOT/app"
 BUILD="$APP_SRC/build"
 APP="$BUILD/DeepSeek Harness Desktop.app"
 BIN="DSHDesktop"
-VERSION="${1:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.3.0)}"
+VERSION="${1:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.3.1)}"
 DMG="$BUILD/DeepSeek-Harness-Desktop-${VERSION}.dmg"
 
 NODE_VERSION="22.22.1"
@@ -260,6 +260,14 @@ lipo -create -output "$APP/Contents/MacOS/$BIN" "$BUILD/${BIN}-arm64" "$BUILD/${
 rm "$BUILD/${BIN}-arm64" "$BUILD/${BIN}-x86_64"
 
 sed "s/@VERSION@/${VERSION}/g" "$APP_SRC/Info.plist" > "$APP/Contents/Info.plist"
+
+# ---------------------------------------------------------------------------
+# 4.5 应用图标（AppKit 离屏绘制 iconset → iconutil 打 icns）
+# ---------------------------------------------------------------------------
+log "生成 AppIcon.icns"
+swiftc -O -o "$BUILD/make-icon" "$APP_SRC/make-icon.swift"
+"$BUILD/make-icon" "$BUILD/AppIcon.iconset" >/dev/null
+iconutil -c icns "$BUILD/AppIcon.iconset" -o "$RES/AppIcon.icns"
 
 # ---------------------------------------------------------------------------
 # 5. 签名（ad-hoc；--deep 覆盖 node 与全部 .node）

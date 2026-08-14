@@ -19,7 +19,7 @@
 
 ## 安装（DMG，推荐）
 
-1. 下载 [DeepSeek-Harness-Desktop-0.3.0.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.0.dmg)（约 350MB，universal）
+1. 下载 [DeepSeek-Harness-Desktop-0.3.1.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.1.dmg)（约 350MB，universal）
 2. 打开 DMG，把 **DeepSeek Harness Desktop** 拖进 **Applications**
 3. 双击打开。未做 Apple 公证：macOS 15 首次打开需右键 → 打开，
    或「系统设置 → 隐私与安全性 → 仍要打开」
@@ -129,6 +129,11 @@ DMG 构建时会做更完整的自测：包内运行时真启动一次 dsh web �
 
 **Paseo 里的对话为什么没有上下文？** 每个 prompt 回合是一次独立的 `dsh --profile headless`
 运行（dsh headless 无 resume），回合间不保留对话上下文。
+
+**设置里的 Providers 页显示 "Connect to this host to see providers"？** 这是 v0.3.0 的已知问题：
+数据目录重建后 daemon 身份（serverId）变化，Web UI 的 host 注册表拒绝接受新身份。v0.3.1 起
+APP 固定 serverId 并在身份变化时自动重置 Web UI 本地数据；旧版本手动修复 = 退出 APP，
+删除 `~/Library/WebKit/com.vvlife.dsh-desktop` 后重开。
 
 **和 dsh-agnes-paseo 什么关系？** 本仓库是其演进形态：provider 从写死 Agnes 变为可选，
 并升级为自包含桌面 APP。旧插件不受影响。

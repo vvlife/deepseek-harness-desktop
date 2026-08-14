@@ -8,6 +8,8 @@
 	<string>DeepSeek Harness Desktop</string>
 	<key>CFBundleExecutable</key>
 	<string>DSHDesktop</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.vvlife.dsh-desktop</string>
 	<key>CFBundleInfoDictionaryVersion</key>

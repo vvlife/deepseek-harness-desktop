@@ -35,6 +35,7 @@ private func bundledResource(_ path: String) -> String? {
 final class AppState: ObservableObject {
   static let shared = AppState()
   @Published var showSettings = false
+  @Published var showOnboarding = false
 }
 
 private enum AppError: LocalizedError {
@@ -102,6 +103,23 @@ final class DaemonManager: ObservableObject {
     UserDefaults.standard.bool(forKey: "telemetryEnabled")
   }
 
+  /// 稳定的 daemon serverId：Paseo 默认在 $PASEO_HOME/server-id 随机生成，
+  /// 一旦数据目录重建就会变化；而 Web UI 的 host 注册表（localStorage）拒绝
+  /// 接受 serverId 与记录不符的 daemon，会陷入「连接→断开」死循环
+  /// （设置页表现为 "Connect to this host to see providers"）。
+  /// 这里用 PASEO_SERVER_ID 固定身份，并在身份变化时清理 Web 数据（见
+  /// reconcileWebDataIfNeeded）。
+  var serverId: String {
+    if let stored = UserDefaults.standard.string(forKey: "paseoServerId"), !stored.isEmpty {
+      return stored
+    }
+    let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+    let random = String((0..<12).map { _ in alphabet.randomElement()! })
+    let generated = "srv_\(random)"
+    UserDefaults.standard.set(generated, forKey: "paseoServerId")
+    return generated
+  }
+
   // MARK: 生命周期
 
   func start() {
@@ -121,6 +139,7 @@ final class DaemonManager: ObservableObject {
         trail("daemon start ✔，等待 Web UI")
         if await pollWebReady(seconds: 120) {
           trail("Web UI 就绪")
+          await reconcileWebDataIfNeeded()
           state = .running(webURL)
         } else {
           trail("Web UI 超时未就绪")
@@ -152,6 +171,31 @@ final class DaemonManager: ObservableObject {
       }
       booting = false
     }
+  }
+
+  /// daemon serverId 变化时（数据目录重建/旧版本随机 id），Web UI localStorage
+  /// 里的 host 注册表即失效且不可恢复（Paseo 拒绝采纳新 id），必须清掉让
+  /// Web UI 依据 index.html 注入的连接提示重新自举。
+  /// 以 /api/status 返回的「实际运行身份」为准——升级期间旧 daemon 可能仍在跑。
+  private func reconcileWebDataIfNeeded() async {
+    guard let actual = await fetchRunningServerId() else { return }
+    let last = UserDefaults.standard.string(forKey: "webDataServerId")
+    guard last != actual else { return }
+    trail("serverId 变化（\(last ?? "无记录") → \(actual)），清理 Web UI 本地数据")
+    let store = WKWebsiteDataStore.default()
+    let types = WKWebsiteDataStore.allWebsiteDataTypes()
+    await store.removeData(ofTypes: types, modifiedSince: .distantPast)
+    UserDefaults.standard.set(actual, forKey: "webDataServerId")
+  }
+
+  private func fetchRunningServerId() async -> String? {
+    var req = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/api/status")!)
+    req.timeoutInterval = 5
+    guard let (data, resp) = try? await URLSession.shared.data(for: req),
+          (resp as? HTTPURLResponse)?.statusCode == 200,
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let id = obj["serverId"] as? String, !id.isEmpty else { return nil }
+    return id
   }
 
   /// 退出兜底（非 MainActor）：仅在用户勾选「退出时停止服务」时调用
@@ -254,6 +298,7 @@ final class DaemonManager: ObservableObject {
     env["LANG"] = env["LANG"] ?? "en_US.UTF-8"
     env["PASEO_HOME"] = paseoHomeDir.path
     env["DSH_HOME"] = dshHomeDir.path
+    env["PASEO_SERVER_ID"] = serverId
     // daemon 持久化配置可能被 schema 归一化丢弃，Web UI 开关以 env 为准（最高优先级）
     if let dist = webUIDistPath {
       env["PASEO_WEB_UI_ENABLED"] = "1"
@@ -569,6 +614,7 @@ private struct SettingsView: View {
             UserDefaults.standard.set(v, forKey: "stopDaemonOnQuit")
           }
         HStack {
+          Button("查看入门引导") { AppState.shared.showOnboarding = true }
           Button("打开数据目录") { NSWorkspace.shared.open(appSupportDir) }
           Spacer()
           Button("重启服务") { daemon.restart() }
@@ -651,6 +697,77 @@ private struct SettingsView: View {
 }
 
 // ---------------------------------------------------------------------------
+// 首次启动引导（Host 与 provider 配置说明）
+// ---------------------------------------------------------------------------
+private struct OnboardingView: View {
+  @ObservedObject private var daemon = DaemonManager.shared
+  let onClose: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 16) {
+      HStack(spacing: 10) {
+        Text("🐋").font(.system(size: 34))
+        VStack(alignment: .leading, spacing: 2) {
+          Text("欢迎使用 DeepSeek Harness Desktop").font(.title3.weight(.bold))
+          Text("30 秒了解它是怎么工作的").font(.caption).foregroundStyle(.secondary)
+        }
+      }
+
+      GroupBox {
+        VStack(alignment: .leading, spacing: 8) {
+          Label("内置 Host 已自动就绪，无需手动配置", systemImage: "checkmark.circle.fill")
+            .foregroundStyle(.green)
+          Text("APP 自带 Paseo 服务（Host），启动后窗口里的 Web UI 会自动连接它（127.0.0.1:\(daemon.port)）。你不需要在 Web UI 里手动「添加 Host」；如果看到 \"Connect to this host…\"，说明服务还在启动，稍等片刻或点工具栏「重载」即可。")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      } label: {
+        Text("① Host（不用管）").font(.headline)
+      }
+
+      GroupBox {
+        VStack(alignment: .leading, spacing: 8) {
+          Text("要让 agent 真正对话，需要配一个 LLM 提供商：按 ⌘, 打开设置 → 选 DeepSeek 官方 / Agnes AI / 自定义端点 → 粘贴 API Key（「获取 Key」会打开对应平台页面）→「保存并重启服务」。配一次即可，以后直接用。")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      } label: {
+        Text("② 配 LLM 提供商（用之前配一次）").font(.headline)
+      }
+
+      GroupBox {
+        VStack(alignment: .leading, spacing: 8) {
+          Text("设置页点「生成配对二维码」，用手机 Paseo App 扫码即可远程连到本 APP 的内置服务。退出 APP 后服务默认保持运行，手机可继续连接。")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      } label: {
+        Text("③ 移动端直连（可选）").font(.headline)
+      }
+
+      HStack {
+        Button("查看设置（⌘,）") {
+          onClose()
+          AppState.shared.showSettings = true
+        }
+        Spacer()
+        Button("开始使用") { onClose() }
+          .buttonStyle(.borderedProminent)
+          .keyboardShortcut(.defaultAction)
+      }
+    }
+    .padding(24)
+    .frame(width: 560)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 主窗口
 // ---------------------------------------------------------------------------
 private struct ContentView: View {
@@ -712,7 +829,18 @@ private struct ContentView: View {
     .sheet(isPresented: $appState.showSettings) {
       SettingsView()
     }
-    .onAppear { daemon.start() }
+    .sheet(isPresented: $appState.showOnboarding) {
+      OnboardingView {
+        UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
+        appState.showOnboarding = false
+      }
+    }
+    .onAppear {
+      daemon.start()
+      if !UserDefaults.standard.bool(forKey: "hasSeenOnboarding") {
+        appState.showOnboarding = true
+      }
+    }
   }
 }
 
