@@ -414,6 +414,8 @@ async function main() {
     } else {
       die(`未知 provider：${providerArg}（可选 deepseek / agnes / custom）`);
     }
+  } else if (nonInteractive) {
+    p = PROVIDERS.deepseek; // --yes 未指定 --provider：全默认 = DeepSeek 官方
   } else {
     rl = ttyPrompt();
     if (!rl) die("非交互终端且未指定 --provider；请使用 flags（见 --help）");
