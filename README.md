@@ -15,6 +15,12 @@
 
 使用私有 `PASEO_HOME` / `DSH_HOME` 与非默认端口，**不读不写、也不干扰**你本机已有的 dsh 和 Paseo。
 
+> **一句话**：从安装、出门遥控 agent，到把作品发上公网——每一步都只要点一下。
+
+| ⚡ 0 前置依赖 | 📱 2 端实时同步 | 🧩 66+ 社区插件 | 🚀 1 键发布公网 |
+|---|---|---|---|
+| 拖进应用程序即用 | 桌面 ↔ 手机对话镜像 | 市场内一键安装 | 免账号，拿到链接即分享 |
+
 ## 六大特性
 
 ### 🚀 一站式安装：拖进「应用程序」，双击，完
@@ -80,6 +86,8 @@ dsh plugin --profile web add "github:vvlife/deepseek-harness-desktop#main&path:/
 想改回官方搜索，卸载插件即可。插件零依赖，自测见 `plugin/test.mjs`
 （离线 fixture + 在线实测）。
 
+> 🖥 **双界面切换**（Mobile / Web 常驻不重载）· 🔌 **提供商可选**（DeepSeek 官方 / Agnes / OpenAI 兼容端点）· 🛡 **环境隔离**（私有 home + 独立端口，不碰 `~/.dsh` / `~/.paseo`）· 🧪 **构建即自测**（每个 DMG 真起服务全链路断言，全绿才发布）
+
 > A self-contained macOS app bundling a universal Node runtime + full Paseo
 > (daemon, Web UI, mobile pairing) + full DeepSeek Harness as a Paseo provider
 > (via a zero-dependency ACP bridge). Drag to Applications and go — one-stop install,
@@ -89,7 +97,7 @@ dsh plugin --profile web add "github:vvlife/deepseek-harness-desktop#main&path:/
 
 ## 安装（DMG，推荐）
 
-1. 下载 [DeepSeek-Harness-Desktop-0.3.7.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.7.dmg)（约 350MB，universal）
+1. 下载 [DeepSeek-Harness-Desktop-0.3.8.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.8.dmg)（约 350MB，universal）
 2. 打开 DMG，把 **DeepSeek Harness Desktop** 拖进 **Applications**
 3. 双击打开。未做 Apple 公证：macOS 15 首次打开需右键 → 打开，
    或「系统设置 → 隐私与安全性 → 仍要打开」
