@@ -37,7 +37,8 @@ Node v22 运行时、完整 dsh、完整 Paseo（daemon + Web UI + 移动端配�
 
 dsh 的信条是「Everything is a Plugin」。接上 [WhaleHub](https://github.com/vvlife/whalehub-dsh)
 市场插件后，Web 界面的「设置 → Plugins」会多出「**🐋 插件市场**」Tab：浏览、搜索、
-**一键安装**皮肤、TUI、视觉工具、工作流等 66+ 社区插件，不用再翻仓库抄命令：
+**一键安装**皮肤、TUI、视觉工具、工作流等 66+ 社区插件，不用再翻仓库抄命令
+（市场数据每日同步自社区精选列表 [awesome-deepseek-harness-plugins](https://github.com/vvlife/awesome-deepseek-harness-plugins)）：
 
 ```sh
 dsh plugin --profile web add "github:vvlife/whalehub-dsh#main&path:/plugin"
