@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/icon.png" width="96" alt="DeepSeek Harness Desktop 图标">
+</p>
+
 # DeepSeek Harness Desktop
 
 **[🐋 宣传站](https://dsh-desktop.vercel.app)**（[国内镜像](https://vvlife.github.io/deepseek-harness-desktop/)）·
