@@ -9,7 +9,14 @@
 （经 ACP 桥注册为 Paseo 的 **DeepSeek Harness** provider）。拖进「应用程序」双击即用——
 **不需要预装任何东西**；使用私有 `PASEO_HOME` / `DSH_HOME` 与非默认端口，
 **不读不写、也不干扰**你本机已有的 dsh 和 Paseo。首次打开**不会**要求填 provider；
-需要时按 `⌘,` 在图形设置页里配置即可（DeepSeek 官方 / Agnes AI / 自定义 OpenAI 兼容端点）。
+需要时在 Harness Web 界面的「模型」设置里配置即可（DeepSeek 官方 / Agnes AI / 自定义 OpenAI 兼容端点）。
+
+<p>
+  <img src="docs/images/shot-paseo.png" width="49%" alt="Paseo 界面">
+  <img src="docs/images/shot-harness-web.png" width="49%" alt="Harness Web 界面">
+  <br>
+  <img src="docs/images/shot-mobile-mirror.png" width="32%" alt="手机端实时看到 Harness Web 的镜像对话">
+</p>
 
 > A self-contained macOS app bundling a universal Node runtime + full Paseo
 > (daemon, Web UI, mobile pairing) + full DeepSeek Harness as a Paseo provider
@@ -19,7 +26,7 @@
 
 ## 安装（DMG，推荐）
 
-1. 下载 [DeepSeek-Harness-Desktop-0.3.2.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.2.dmg)（约 350MB，universal）
+1. 下载 [DeepSeek-Harness-Desktop-0.3.3.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.3.dmg)（约 350MB，universal）
 2. 打开 DMG，把 **DeepSeek Harness Desktop** 拖进 **Applications**
 3. 双击打开。未做 Apple 公证：macOS 15 首次打开需右键 → 打开，
    或「系统设置 → 隐私与安全性 → 仍要打开」
@@ -37,8 +44,10 @@
 Paseo 界面里的 agent 对话在手机与电脑之间**实时同步**；退出 APP 后内置服务**默认保持运行**，
 移动端可继续连接。若手机提示超时，点「刷新配对码」后立刻重扫（relay 重连窗口期会导致偶发超时）。
 
-> 注意：Harness Web（dsh web）里的对话是 dsh 自己的本地会话，不进 Paseo daemon，
-> 手机端看不到；需要手机同步的对话请在 Paseo 界面进行（provider 选「DeepSeek Harness」）。
+> **Harness Web 的对话也能上手机**：APP 每 20s 把 Harness Web（dsh web）里的新会话
+> 自动镜像为 Paseo agent（标题同名，含完整对话与思考过程），手机端直接可见；
+> 在手机上追问也能接续原对话（带上下文注入，回合写入 overlay 持久化）。
+> 镜像通过 ACP `session/list` + `session/load` 回放实现，dsh web 本体零改动。
 
 ### 备选：curl|bash 命令行安装器
 

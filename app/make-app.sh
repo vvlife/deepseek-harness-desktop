@@ -19,7 +19,7 @@ APP_SRC="$ROOT/app"
 BUILD="$APP_SRC/build"
 APP="$BUILD/DeepSeek Harness Desktop.app"
 BIN="DSHDesktop"
-VERSION="${1:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.3.2)}"
+VERSION="${1:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo 0.3.3)}"
 DMG="$BUILD/DeepSeek-Harness-Desktop-${VERSION}.dmg"
 
 NODE_VERSION="22.22.1"
@@ -305,8 +305,8 @@ SMOKE_PORT="19767"
 mkdir -p "$SMOKE_P_HOME" "$SMOKE_D_HOME/paseo-bridge"
 
 # 桥 + wrapper（与 APP 首次启动所做准备一致）
-cp "$RES/installer/bridge/dsh-acp-bridge.mjs" "$SMOKE_D_HOME/paseo-bridge/"
-chmod 755 "$SMOKE_D_HOME/paseo-bridge/dsh-acp-bridge.mjs"
+cp "$RES/installer/bridge/"*.mjs "$SMOKE_D_HOME/paseo-bridge/"
+chmod 755 "$SMOKE_D_HOME/paseo-bridge/"*.mjs
 cat > "$SMOKE_D_HOME/paseo-bridge/bridge-wrapper.sh" <<EOF
 #!/bin/sh
 export DSH_HOME="$SMOKE_D_HOME"
@@ -338,6 +338,35 @@ sleep 6
 "${PCLI[@]}" provider ls 2>/dev/null | grep -qi "DeepSeek Harness" \
   || { "${PCLI[@]}" provider ls; "${PCLI[@]}" daemon stop >/dev/null 2>&1; die "自测：provider ls 未见 DeepSeek Harness"; }
 echo "    ✔ provider「DeepSeek Harness」已注册并识别"
+
+log "自测：dsh 会话镜像（session/list → 自动导入 → 回放）"
+# 造一个合成 dsh 会话（每行一个独立 zstd 帧，与 dsh 实际格式一致）
+SMOKE_SESS_DIR="$SMOKE_D_HOME/sessions/--tmp--/session-smoketest01"
+mkdir -p "$SMOKE_SESS_DIR"
+DSH_HOME="$SMOKE_D_HOME" "$RUNTIME/node/bin/node" -e '
+  const { zstdCompressSync } = require("node:zlib");
+  const { writeFileSync } = require("node:fs");
+  const lines = [
+    JSON.stringify({type:"session",version:0,id:"session-smoketest01",createdAt:Date.now(),cwd:"/tmp",delegationDepth:0}),
+    JSON.stringify({type:"user/message",seq:1,time:Date.now(),data:{content:[{type:"text",text:"镜像自测问题"}],role:"user",id:"m1"}}),
+    JSON.stringify({type:"session/title",seq:2,time:Date.now(),data:{title:"镜像自测",messageSeqs:[1]}}),
+    JSON.stringify({type:"assistant/message",seq:3,time:Date.now(),data:{turn:1,step:1,message:{role:"assistant",content:[{type:"text",text:"镜像自测回答"}]}}}),
+  ];
+  writeFileSync(process.argv[1], Buffer.concat(lines.map((l) => zstdCompressSync(Buffer.from(l + "\n")))));
+' "$SMOKE_SESS_DIR/session.jsonl.zstd"
+"$RUNTIME/node/bin/node" "$ROOT/scripts/sync-dsh-sessions.mjs" --paseo-cli "${PCLI[1]}" --min-age-ms 0 >"$TEST_LOG" 2>&1 \
+  || { cat "$TEST_LOG"; "${PCLI[@]}" daemon stop >/dev/null 2>&1; die "自测：会话同步脚本失败"; }
+sleep 3
+# 标题由 daemon 元数据生成（无凭据时可能滞后），按 provider+cwd 定位，用 logs 断言内容
+aid=$("${PCLI[@]}" agent ls 2>/dev/null | grep "deepseek/" | grep "/tmp" | awk '{print $1}' | head -1)
+[ -n "$aid" ] || { cat "$TEST_LOG"; "${PCLI[@]}" agent ls; "${PCLI[@]}" daemon stop >/dev/null 2>&1; die "自测：镜像 agent 未出现"; }
+if "${PCLI[@]}" agent logs "$aid" 2>/dev/null | grep -q "镜像自测回答"; then
+  echo "    ✔ 镜像 agent 时间线回放正确（${aid}）"
+else
+  "${PCLI[@]}" agent logs "$aid"
+  "${PCLI[@]}" daemon stop >/dev/null 2>&1
+  die "自测：镜像回放内容缺失"
+fi
 "${PCLI[@]}" daemon stop >"$TEST_LOG" 2>&1 || die "自测：daemon stop 失败"
 unset PASEO_HOME PASEO_LISTEN PASEO_WEB_UI_ENABLED PASEO_WEB_UI_DIST_DIR DSH_HOME
 rm -rf "$TEST_HOME"

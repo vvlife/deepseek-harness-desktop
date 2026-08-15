@@ -61,11 +61,11 @@
   <div class="badges">
     <span class="badge">macOS 12+（Apple Silicon / Intel）</span>
     <span class="badge">MIT（内置组件见许可页）</span>
-    <span class="badge">v0.3.2</span>
+    <span class="badge">v0.3.3</span>
   </div>
 
   <div class="cta">
-    <a class="btn" href="https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.2.dmg">⬇ 下载 DMG（约 350MB）</a>
+    <a class="btn" href="https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.3.dmg">⬇ 下载 DMG（约 350MB）</a>
     <a class="btn ghost" href="https://github.com/vvlife/deepseek-harness-desktop">GitHub 仓库</a>
   </div>
   <p style="margin-top:14px;font-size:13px;color:var(--dim)">
@@ -84,12 +84,25 @@
   <h2>为什么是它</h2>
   <div class="grid">
     <div class="card"><h3>📱 手机直连 agent</h3><p>内置完整 Paseo（daemon + 移动端配对）。Harness Web 界面一键生成配对二维码，手机 Paseo App 扫码即连，对话实时同步——出门在外也能给 agent 派活。</p></div>
+    <div class="card"><h3>🔄 会话跨端镜像</h3><p>Harness Web 里的对话自动镜像成 Paseo agent：手机端实时可见（含新回合的实时推送），还能在手机上追问续聊。桌面端统一处理，手机只管发消息、看回复。</p></div>
     <div class="card"><h3>📦 真·开箱即用</h3><p>Node 运行时、完整 dsh、完整 Paseo 全在包里。不需要 Homebrew、不需要 npm、不需要任何预装。</p></div>
     <div class="card"><h3>🖥 双界面一键切换</h3><p>Paseo 界面管 agent、Harness Web（dsh 自带界面）管模型与插件，顶部一键切换。LLM Key 在 Harness Web 的「模型」设置里填，保存即用。</p></div>
     <div class="card"><h3>🔌 提供商可选</h3><p>DeepSeek 官方（默认）/ Agnes AI / 任意 OpenAI 兼容端点。随时在 Harness Web 的模型设置里切换，互不影响。</p></div>
     <div class="card"><h3>🛡 与本机环境隔离</h3><p>私有 PASEO_HOME / DSH_HOME 与独立端口，不读不写 <span class="inline-code">~/.dsh</span>、<span class="inline-code">~/.paseo</span>；dsh 遥测默认关闭。</p></div>
-    <div class="card"><h3>🧪 构建即全链路自测</h3><p>每个 DMG 打包时都用包内运行时真起 dsh web + Paseo daemon，注册 provider 并断言识别，全绿才发布。</p></div>
+    <div class="card"><h3>🧪 构建即全链路自测</h3><p>每个 DMG 打包时都用包内运行时真起 dsh web + Paseo daemon，注册 provider、跑通会话镜像导入与回放，全绿才发布。</p></div>
   </div>
+</section>
+
+<section>
+  <h2>看一眼</h2>
+  <div class="grid" style="grid-template-columns:1fr 1fr;align-items:start">
+    <a href="images/shot-paseo.png"><img src="images/shot-paseo.png" alt="Paseo 界面：agent 与工作区" style="width:100%;border-radius:12px;border:1px solid var(--line)"></a>
+    <a href="images/shot-harness-web.png"><img src="images/shot-harness-web.png" alt="Harness Web 界面（dsh web）" style="width:100%;border-radius:12px;border:1px solid var(--line)"></a>
+  </div>
+  <p style="margin-top:14px">
+    <a href="images/shot-mobile-mirror.png"><img src="images/shot-mobile-mirror.png" alt="手机端看到 Harness Web 的镜像对话" style="width:min(360px,80%);border-radius:16px;border:1px solid var(--line);display:block;margin:0 auto"></a>
+    <p style="text-align:center;font-size:13px;color:var(--dim)">手机端（Paseo App）实时看到 Harness Web 里的对话，还能直接追问。</p>
+  </p>
 </section>
 
 <section>

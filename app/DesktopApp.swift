@@ -170,6 +170,7 @@ final class DaemonManager: ObservableObject {
           trail("Web UI 就绪")
           await reconcileWebDataIfNeeded()
           state = .running(webURL)
+          startSessionSyncLoop()
         } else {
           trail("Web UI 超时未就绪")
           state = .failed("内置服务已启动，但 Web UI 长时间未就绪。可在设置页「重启服务」重试。")
@@ -192,6 +193,7 @@ final class DaemonManager: ObservableObject {
         try await runCLI(["daemon", "restart"], step: "重启服务")
         if await pollWebReady(seconds: 120) {
           state = .running(webURL)
+          startSessionSyncLoop()
         } else {
           state = .failed("重启后 Web UI 未就绪。")
         }
@@ -225,6 +227,44 @@ final class DaemonManager: ObservableObject {
           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
           let id = obj["serverId"] as? String, !id.isEmpty else { return nil }
     return id
+  }
+
+  // MARK: dsh 会话镜像同步（Harness Web 的对话 → 手机端可见）
+
+  private var syncTimer: Timer?
+  private var syncInFlight = false
+
+  /// 每 20s 把新增的 dsh 本地会话导入为 Paseo 镜像 agent（幂等，失败有退避）
+  func startSessionSyncLoop() {
+    guard syncTimer == nil else { return }
+    trail("启动 dsh 会话镜像同步")
+    let timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+      Task { @MainActor in self?.runSessionSync() }
+    }
+    timer.tolerance = 5
+    syncTimer = timer
+    runSessionSync()
+  }
+
+  private func runSessionSync() {
+    guard !syncInFlight, case .running = state else { return }
+    guard let node = nodePath,
+          let script = bundledResource("installer/scripts/sync-dsh-sessions.mjs"),
+          let cli = cliPath else { return }
+    syncInFlight = true
+    Task {
+      let (code, out) = await Self.runProcess(node, [script, "--paseo-cli", cli], env: processEnv())
+      let summary = out.trimmingCharacters(in: .whitespacesAndNewlines)
+      if code == 0 {
+        // 只在有实际导入/失败时记日志，避免每 20s 刷屏
+        if !summary.isEmpty, !summary.hasSuffix("新导入 0，已在库 0，失败 0") {
+          trail("会话同步：\(summary)")
+        }
+      } else {
+        trail("会话同步失败：\(out.suffix(300))")
+      }
+      syncInFlight = false
+    }
   }
 
   /// 退出兜底（非 MainActor）：仅在用户勾选「退出时停止服务」时调用
@@ -281,15 +321,19 @@ final class DaemonManager: ObservableObject {
   func prepareBridge() throws {
     guard let node = nodePath,
           let bridgeSrc = bundledResource("installer/bridge/dsh-acp-bridge.mjs"),
+          let sessionsSrc = bundledResource("installer/bridge/dsh-sessions.mjs"),
           let dshShim = bundledResource("runtime/node/bin/dsh")
     else { throw AppError.runtimeMissing }
     let bridgeDir = dshHomeDir.appendingPathComponent("paseo-bridge", isDirectory: true)
     let bridgeDst = bridgeDir.appendingPathComponent("dsh-acp-bridge.mjs")
+    let sessionsDst = bridgeDir.appendingPathComponent("dsh-sessions.mjs")
     let wrapper = bridgeDir.appendingPathComponent("bridge-wrapper.sh")
     try fm.createDirectory(at: bridgeDir, withIntermediateDirectories: true)
-    if fm.fileExists(atPath: bridgeDst.path) { try fm.removeItem(at: bridgeDst) }
-    try fm.copyItem(atPath: bridgeSrc, toPath: bridgeDst.path)
-    try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: bridgeDst.path)
+    for (src, dst) in [(bridgeSrc, bridgeDst), (sessionsSrc, sessionsDst)] {
+      if fm.fileExists(atPath: dst.path) { try fm.removeItem(at: dst) }
+      try fm.copyItem(atPath: src, toPath: dst.path)
+      try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dst.path)
+    }
     let runtimeBin = (node as NSString).deletingLastPathComponent
     let script = """
       #!/bin/sh

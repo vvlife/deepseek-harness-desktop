@@ -24,8 +24,9 @@
 
 - **内置** universal Node v22 运行时、完整的 Paseo（daemon + Web UI + 移动端配对）和完整的 `@deepseek-ai/dsh`；
 - dsh 经零依赖 ACP 桥自动注册为 Paseo 的「**DeepSeek Harness**」provider，开箱就在列表里；
-- 打开即用——**不会**一进来就逼你填 provider；需要对话时按 `⌘,` 打开图形设置页自己配；
-- **移动端直连**：设置页一键生成配对二维码，手机 Paseo App 扫码即连（经官方 relay）；退出 APP 服务默认保持运行，移动端不掉线；
+- **双界面一键切换**：Paseo 界面管 agent、Harness Web（dsh 自带 Web 界面）管模型与插件，顶部切换；LLM Key 在 Harness Web 的「模型」设置里填；
+- **会话跨端镜像**：Harness Web 里的对话自动镜像成 Paseo agent，手机端实时可见、可追问续聊（ACP session/list + session/load 回放 + 文件监听实时推送）；
+- **移动端直连**：Harness Web 界面手机图标一键生成配对二维码，手机 Paseo App 扫码即连（经官方 relay）；退出 APP 服务默认保持运行，移动端不掉线；
 - 数据目录完全私有、端口独立挑选（避开你本机 Paseo 的 6767），**不读不写** `~/.dsh`、`~/.paseo`；
 - dsh 遥测默认关闭。
 
@@ -74,7 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 
 - 🌐 宣传站：https://dsh-desktop.vercel.app
 - 💾 最新 Release：https://github.com/vvlife/deepseek-harness-desktop/releases/latest
-- 📦 DMG 直链：https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.2.dmg
+- 📦 DMG 直链：https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.3.dmg
 - 🐙 源码仓库：https://github.com/vvlife/deepseek-harness-desktop
 
 欢迎提 Issue、PR，或者只是来点个赞。
@@ -96,4 +97,4 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 
 ---
 
-*最后更新：v0.3.2*
+*最后更新：v0.3.3*

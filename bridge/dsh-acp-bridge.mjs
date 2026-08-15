@@ -19,15 +19,34 @@
  * 每回合是独立的 dsh headless 运行，回合间不保留对话上下文。
  */
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  mkdirSync,
+  appendFileSync,
+  readdirSync,
+  watchFile,
+  unwatchFile,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  listDshSessions,
+  findSessionFile,
+  extractConversation,
+  extractConversationAfter,
+  maxSeqOf,
+} from "./dsh-sessions.mjs";
 
-const BRIDGE_VERSION = "0.2.0";
+const BRIDGE_VERSION = "0.3.0";
 const PROTOCOL_VERSION = 1;
 
 const DSH_HOME = process.env.DSH_HOME ?? join(homedir(), ".dsh");
 const PROVIDER_CONFIG = join(DSH_HOME, "paseo-bridge", "provider.json");
+const SELF_SESSIONS_FILE = join(DSH_HOME, "paseo-bridge", "self-sessions.txt");
+const OVERLAY_DIR = join(DSH_HOME, "paseo-bridge", "mirror-overlay");
 
 // dsh 可执行文件：优先常见绝对路径（GUI daemon 的 PATH 可能很窄）
 const DSH_BIN =
@@ -156,7 +175,11 @@ const handlers = {
         version: BRIDGE_VERSION,
       },
       agentCapabilities: {
-        loadSession: false,
+        // 支持加载/列出 dsh 本地会话：dsh web（Harness Web）里的对话经此
+        // 镜像为 Paseo agent，手机端可见。找不到对应 transcript 的 id
+        // （本桥自己 spawn 的 live 会话）回放为空，行为同旧版。
+        loadSession: true,
+        sessionCapabilities: { list: true },
         promptCapabilities: { image: false, audio: false, embeddedContext: false },
       },
       authMethods: [],
@@ -167,14 +190,63 @@ const handlers = {
     return {};
   },
 
+  /// 列出可导入的 dsh 本地会话（dsh web 产生的；本桥自建的已排除）
+  async "session/list"(_params) {
+    const self = readSelfSessions();
+    const sessions = listDshSessions(DSH_HOME)
+      .filter((s) => s.userCount > 0 && !self.has(s.id))
+      .map((s) => ({
+        sessionId: s.id,
+        cwd: s.cwd || process.cwd(),
+        title: s.title ?? undefined,
+        updatedAt: new Date(s.mtime || Date.now()).toISOString(),
+      }));
+    return { sessions, nextCursor: null };
+  },
+
+  /// 加载 dsh 会话并回放时间线（含手机端续聊的 overlay 追加），
+  /// 之后盯文件变化把新回合实时推给已打开的客户端（手机/桌面同步）
+  async "session/load"(params) {
+    const handle = params?.sessionId;
+    const file = handle ? findSessionFile(DSH_HOME, handle) : null;
+    const state = {
+      cwd: params?.cwd || process.cwd(),
+      modelId: DEFAULT_MODEL,
+      child: null,
+      mirrored: Boolean(file),
+      handle: file ? handle : null,
+      lastSeq: 0,
+    };
+    if (file) {
+      // daemon 在 loadSession 前已把会话键设为 handle，回放通知必须带 handle
+      sessions.set(handle, state);
+      const transcript = extractConversation(file);
+      const overlay = readOverlay(handle);
+      for (const msg of [...transcript, ...overlay]) {
+        await replayMessage(handle, msg);
+      }
+      state.lastSeq = maxSeqOf(file);
+      startTranscriptWatch(handle, file, state);
+      return {
+        models: { availableModels: MODELS, currentModelId: DEFAULT_MODEL },
+      };
+    }
+    // 无对应 transcript（本桥自建的 live 会话）：空回放，行为同旧版
+    const sessionId = newSessionId();
+    sessions.set(sessionId, state);
+    return {
+      models: { availableModels: MODELS, currentModelId: DEFAULT_MODEL },
+    };
+  },
+
   async "session/new"(params) {
-    const sessionId = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const sessionId = newSessionId();
     sessions.set(sessionId, {
       cwd: params?.cwd || process.cwd(),
       modelId: DEFAULT_MODEL,
       child: null,
+      mirrored: false,
+      handle: null,
     });
     return {
       sessionId,
@@ -199,6 +271,9 @@ const handlers = {
   async "session/close"(params) {
     const session = sessions.get(params?.sessionId);
     session?.child?.kill("SIGTERM");
+    if (session?.watchFile) {
+      unwatchFile(session.watchFile);
+    }
     sessions.delete(params?.sessionId);
     return {};
   },
@@ -207,8 +282,19 @@ const handlers = {
     const session = sessions.get(params?.sessionId);
     if (!session) throw rpcError(-32602, `Session ${params?.sessionId} not found`);
 
-    const task = promptToText(params?.prompt);
+    let task = promptToText(params?.prompt);
     if (!task) return { stopReason: "end_turn" };
+
+    // 镜像会话（来自 dsh web 的 transcript）：dsh headless 不支持 resume，
+    // 把此前对话压缩成上下文前缀，让手机端的追问能接续原对话
+    if (session.mirrored && session.handle) {
+      const history = readTranscriptMessages(session.handle);
+      const overlay = readOverlay(session.handle);
+      const context = buildContextPrefix([...history, ...overlay]);
+      appendOverlay(session.handle, { role: "user", text: task });
+      if (context) task = `${context}\n${task}`;
+      session.pendingOverlayReply = "";
+    }
 
     // per-session 选模型：生成临时 patch overlay 覆盖 agent-default-model
     const patchPath = join(tmpdir(), `dsh-acp-${params.sessionId}.yml`);
@@ -228,6 +314,10 @@ const handlers = {
       return await runDsh(params.sessionId, session, task, patchPath);
     } finally {
       rmSync(patchPath, { force: true });
+      if (session.mirrored && session.handle && session.pendingOverlayReply?.trim()) {
+        appendOverlay(session.handle, { role: "assistant", text: session.pendingOverlayReply.trim() });
+      }
+      session.pendingOverlayReply = undefined;
     }
   },
 };
@@ -236,8 +326,160 @@ function rpcError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
+// ---------------------------------------------------------------------------
+// 镜像会话工具（dsh web 会话 → Paseo 可见）
+// ---------------------------------------------------------------------------
+
+function newSessionId() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function readSelfSessions() {
+  try {
+    return new Set(
+      readFileSync(SELF_SESSIONS_FILE, "utf8").split("\n").map((s) => s.trim()).filter(Boolean),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+/** spawn 前后快照会话目录，新增的标记为「本桥自建」，不做镜像（避免重复导入） */
+function snapshotSessionDirs() {
+  const root = join(DSH_HOME, "sessions");
+  const out = new Set();
+  try {
+    for (const slug of readdirSync(root)) {
+      for (const dir of readdirSync(join(root, slug))) out.add(dir);
+    }
+  } catch {
+    // sessions 目录尚不存在
+  }
+  return out;
+}
+
+function markNewSessionsAsSelf(before) {
+  const root = join(DSH_HOME, "sessions");
+  try {
+    mkdirSync(join(DSH_HOME, "paseo-bridge"), { recursive: true });
+    for (const slug of readdirSync(root)) {
+      for (const dir of readdirSync(join(root, slug))) {
+        if (!before.has(dir)) appendFileSync(SELF_SESSIONS_FILE, dir + "\n");
+      }
+    }
+  } catch {
+    // 忽略：标记失败只是多一个镜像，不影响主流程
+  }
+}
+
+function overlayPath(handle) {
+  return join(OVERLAY_DIR, `${handle}.jsonl`);
+}
+
+function readOverlay(handle) {
+  try {
+    return readFileSync(overlayPath(handle), "utf8")
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null;
+        }
+      })
+      .filter((m) => m && typeof m.text === "string");
+  } catch {
+    return [];
+  }
+}
+
+function appendOverlay(handle, msg) {
+  try {
+    mkdirSync(OVERLAY_DIR, { recursive: true });
+    appendFileSync(overlayPath(handle), JSON.stringify(msg) + "\n");
+  } catch {
+    // 忽略
+  }
+}
+
+function readTranscriptMessages(handle) {
+  const file = findSessionFile(DSH_HOME, handle);
+  return file ? extractConversation(file) : [];
+}
+
+/** 把对话历史压缩成有限长的上下文前缀（接续用，非逐字 transcript） */
+function buildContextPrefix(messages) {
+  const recent = messages.filter((m) => m.role !== "thought").slice(-12);
+  if (recent.length === 0) return "";
+  const lines = recent.map((m) => {
+    const who = m.role === "user" ? "用户" : "助手";
+    const text = m.text.length > 2000 ? m.text.slice(0, 2000) + "…" : m.text;
+    return `${who}：${text}`;
+  });
+  return [
+    "以下是该会话此前的对话记录（仅供接续上下文）：",
+    "<对话记录>",
+    ...lines,
+    "</对话记录>",
+    "",
+    "用户的新消息：",
+  ].join("\n");
+}
+
+/** 回放一条消息为 ACP session/update 通知 */
+async function replayMessage(sessionId, msg) {
+  const update =
+    msg.role === "user"
+      ? {
+          sessionUpdate: "user_message_chunk",
+          content: { type: "text", text: msg.text },
+          ...(msg.messageId ? { messageId: msg.messageId } : {}),
+        }
+      : {
+          sessionUpdate: msg.role === "thought" ? "agent_thought_chunk" : "agent_message_chunk",
+          content: { type: "text", text: msg.text },
+        };
+  await notify("session/update", { sessionId, update });
+}
+
+/**
+ * 镜像会话的实时增量推送：盯 dsh 会话文件，新回合（seq 大于回放水位线）
+ * 立刻推给已打开该 agent 的客户端（手机/桌面）。watchFile 轮询 1.5s，
+ * 带 800ms 防抖，等 dsh 把一个回合写完整。
+ */
+function startTranscriptWatch(handle, file, state) {
+  state.watchFile = file;
+  let timer = null;
+  watchFile(file, { interval: 1500 }, () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      if (!sessions.has(handle)) {
+        unwatchFile(file);
+        return;
+      }
+      let delta;
+      try {
+        delta = extractConversationAfter(file, state.lastSeq);
+      } catch {
+        return; // 写入中途读失败：下轮再试
+      }
+      if (delta.lastSeq === state.lastSeq) return;
+      state.lastSeq = delta.lastSeq;
+      for (const msg of delta.messages) {
+        replayMessage(handle, msg).catch(() => {});
+      }
+    }, 800);
+  });
+}
+
 function runDsh(sessionId, session, task, patchPath) {
   return new Promise((resolve) => {
+    // 记录本桥自建的 dsh 会话，避免被镜像器当成 dsh web 会话重复导入
+    const beforeSpawn = snapshotSessionDirs();
     const child = spawn(
       DSH_BIN,
       ["--profile", "headless", "--patch", patchPath, task],
@@ -248,7 +490,11 @@ function runDsh(sessionId, session, task, patchPath) {
     let started = false;
     let pending = "";
     let stderrText = "";
-    const safeChunk = (text) => sendChunk(sessionId, text).catch(() => {});
+    let replyText = "";
+    const safeChunk = (text) => {
+      replyText += text;
+      return sendChunk(sessionId, text).catch(() => {});
+    };
 
     child.stdout.on("data", (data) => {
       const s = data.toString();
@@ -277,6 +523,8 @@ function runDsh(sessionId, session, task, patchPath) {
 
     child.on("close", (code, signal) => {
       session.child = null;
+      markNewSessionsAsSelf(beforeSpawn);
+      if (session.mirrored) session.pendingOverlayReply = replyText;
       void (async () => {
         if (signal === "SIGTERM" || signal === "SIGKILL") {
           resolve({ stopReason: "cancelled" });
