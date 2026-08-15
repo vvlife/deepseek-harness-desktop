@@ -26,7 +26,7 @@
 
 ## 安装（DMG，推荐）
 
-1. 下载 [DeepSeek-Harness-Desktop-0.3.5.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.5.dmg)（约 350MB，universal）
+1. 下载 [DeepSeek-Harness-Desktop-0.3.6.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.6.dmg)（约 350MB，universal）
 2. 打开 DMG，把 **DeepSeek Harness Desktop** 拖进 **Applications**
 3. 双击打开。未做 Apple 公证：macOS 15 首次打开需右键 → 打开，
    或「系统设置 → 隐私与安全性 → 仍要打开」

@@ -916,28 +916,16 @@ private struct ContentView: View {
           Text(AppState.ViewMode.web.rawValue).tag(AppState.ViewMode.web)
         }
         .pickerStyle(.segmented)
-        .frame(width: 220)
+        .fixedSize() // 外围刚好包住两个分段，不再固定宽度拉宽
         .disabled(!isDaemonRunning)
       }
       ToolbarItemGroup {
-        // 两个界面都有移动端直连入口；紧凑排列（无边框胶囊缝隙）
-        HStack(spacing: 2) {
-          Button { appState.showPairing = true } label: {
-            Image(systemName: "iphone")
-          }
-          .buttonStyle(.borderless)
-          .controlSize(.small)
-          .help("移动端直连")
+        // 两个界面都有移动端直连入口；独立按钮，默认工具栏间距分开排
+        Button { appState.showPairing = true } label: { Label("移动端直连", systemImage: "iphone") }
           .disabled(!isDaemonRunning)
-          Button { activeWeb.reload() } label: {
-            Image(systemName: "arrow.clockwise")
-          }
-          .buttonStyle(.borderless)
-          .controlSize(.small)
-          .help("重载")
+        Button { activeWeb.reload() } label: { Label("重载", systemImage: "arrow.clockwise") }
           .keyboardShortcut("r", modifiers: .command)
           .disabled(activeWeb.webView == nil)
-        }
       }
     }
     .sheet(isPresented: $appState.showPairing) {
