@@ -267,11 +267,11 @@ rm "$BUILD/${BIN}-arm64" "$BUILD/${BIN}-x86_64"
 sed "s/@VERSION@/${VERSION}/g" "$APP_SRC/Info.plist" > "$APP/Contents/Info.plist"
 
 # ---------------------------------------------------------------------------
-# 4.5 应用图标（AppKit 离屏绘制 iconset → iconutil 打 icns）
+# 4.5 应用图标（app/icon-src.png 缩放生成 iconset → iconutil 打 icns）
 # ---------------------------------------------------------------------------
 log "生成 AppIcon.icns"
 swiftc -O -o "$BUILD/make-icon" "$APP_SRC/make-icon.swift"
-"$BUILD/make-icon" "$BUILD/AppIcon.iconset" >/dev/null
+"$BUILD/make-icon" "$BUILD/AppIcon.iconset" "$APP_SRC/icon-src.png" >/dev/null
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$RES/AppIcon.icns"
 
 # ---------------------------------------------------------------------------
@@ -288,7 +288,7 @@ fi
 if [ "$SIGN_IDENTITY" = "-" ]; then
   log "ad-hoc 签名（文件较多，需一两分钟）"
 else
-  log "签名（身份：$SIGN_IDENTITY；文件较多，需一两分钟）"
+  log "签名（身份：${SIGN_IDENTITY}；文件较多，需一两分钟）"
 fi
 codesign --force --deep --sign "$SIGN_IDENTITY" "$APP"
 codesign --verify --deep --strict --verbose=1 "$APP"

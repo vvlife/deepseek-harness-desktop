@@ -1,10 +1,10 @@
 // make-icon.swift — 生成 DeepSeek Harness Desktop 的 AppIcon.iconset。
 //
 //   swiftc -O -o make-icon make-icon.swift
-//   ./make-icon <输出 iconset 目录>
+//   ./make-icon <输出 iconset 目录> <源 PNG>
 //
-// 设计：macOS 圆角矩形（squircle 近似）+ DeepSeek 蓝渐变 + 白色粗体「DSH」。
-// 纯 AppKit 离屏绘制，无第三方依赖，构建机（含 CI macOS runner）直接可跑。
+// 图标源图为 app/icon-src.png（蓝绿渐变圆角矩形 + 白色「D」与星点，四角透明），
+// 这里只做高质量缩放输出全部 iconset 尺寸，不再程序绘制。
 import AppKit
 
 let sizes: [(name: String, px: Int)] = [
@@ -20,6 +20,16 @@ let sizes: [(name: String, px: Int)] = [
   ("icon_512x512@2x.png", 1024),
 ]
 
+guard CommandLine.arguments.count > 2 else {
+  fatalError("用法：make-icon <输出 iconset 目录> <源 PNG>")
+}
+let outDir = CommandLine.arguments[1]
+let srcPath = CommandLine.arguments[2]
+
+guard let src = NSImage(contentsOfFile: srcPath) else {
+  fatalError("源图标读取失败：\(srcPath)")
+}
+
 func render(px: Int) -> NSBitmapImageRep {
   let s = CGFloat(px)
   let rep = NSBitmapImageRep(
@@ -30,38 +40,13 @@ func render(px: Int) -> NSBitmapImageRep {
   NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
   let ctx = NSGraphicsContext.current!.cgContext
   ctx.clear(CGRect(x: 0, y: 0, width: s, height: s))
-
-  // 图标主体：Apple 网格约 80.5% 占比、圆角约主体 22.37%
-  let body = s * 0.805
-  let origin = (s - body) / 2
-  let rect = CGRect(x: origin, y: origin, width: body, height: body)
-  let path = NSBezierPath(roundedRect: rect, xRadius: body * 0.2237, yRadius: body * 0.2237)
-
-  let gradient = NSGradient(colors: [
-    NSColor(calibratedRed: 0.36, green: 0.51, blue: 0.98, alpha: 1), // #5C82FA 亮蓝
-    NSColor(calibratedRed: 0.10, green: 0.24, blue: 0.78, alpha: 1), // #1A3DC7 深蓝
-  ])!
-  gradient.draw(in: path, angle: -90)
-
-  // 中央白色粗体 DSH
-  let fontSize = body * 0.42
-  let font = NSFont.systemFont(ofSize: fontSize, weight: .heavy)
-  let text = "DSH" as NSString
-  let attrs: [NSAttributedString.Key: Any] = [
-    .font: font,
-    .foregroundColor: NSColor.white,
-    .kern: fontSize * 0.02,
-  ]
-  let textSize = text.size(withAttributes: attrs)
-  text.draw(at: NSPoint(x: (s - textSize.width) / 2,
-                        y: (s - textSize.height) / 2 - body * 0.01),
-            withAttributes: attrs)
-
+  ctx.interpolationQuality = .high
+  src.draw(in: CGRect(x: 0, y: 0, width: s, height: s),
+           from: .zero, operation: .sourceOver, fraction: 1)
   NSGraphicsContext.restoreGraphicsState()
   return rep
 }
 
-let outDir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "AppIcon.iconset"
 try FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
 for item in sizes {
   let rep = render(px: item.px)
