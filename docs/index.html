@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DeepSeek Harness Desktop — 内置 Paseo 的 dsh 桌面版，手机也能直连</title>
-<meta name="description" content="自包含 macOS APP：内置 Paseo（daemon + Web UI + 移动端直连）与完整 DeepSeek Harness，零前置依赖，拖进应用程序即用；手机扫码即可遥控 agent。">
+<title>DeepSeek Harness Desktop — 一站式 dsh 桌面版：手机直连、插件市场、一键发布公网</title>
+<meta name="description" content="自包含 macOS APP：内置 Paseo（daemon + Web UI + 移动端直连）与完整 DeepSeek Harness，零前置依赖，拖进应用程序即用；手机扫码直连 agent，插件市场、HTML 预览、一键发布公网全都有。">
 <meta property="og:title" content="DeepSeek Harness Desktop">
-<meta property="og:description" content="内置 Paseo + dsh 的自包含 Mac APP：拖进应用程序即用，手机扫码直连你的 agent。">
+<meta property="og:description" content="一站式 dsh 桌面版：拖进应用程序即用，手机扫码直连 agent，插件市场 + 内置预览 + 一键发布公网。">
 <meta property="og:type" content="website">
 <style>
   :root {
@@ -36,6 +36,7 @@
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
   .card h3 { font-size: 16px; margin-bottom: 8px; }
   .card p { color: var(--dim); font-size: 14px; }
+  .card p code { font-family: "SF Mono", Menlo, monospace; font-size: 12px; color: var(--accent2); word-break: break-all; }
   .steps { counter-reset: s; max-width: 680px; margin: 0 auto; }
   .step { display: flex; gap: 16px; margin-bottom: 18px; }
   .step::before { counter-increment: s; content: counter(s); flex: 0 0 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; }
@@ -47,6 +48,8 @@
   .faq summary { cursor: pointer; font-weight: 600; }
   .faq p { margin-top: 8px; }
   .inline-code { font-family: "SF Mono", Menlo, monospace; background: var(--code); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-size: 13px; color: var(--accent2); }
+  .shot { width: 100%; border-radius: 12px; border: 1px solid var(--line); display: block; }
+  .cap { text-align: center; font-size: 13px; color: var(--dim); margin-top: 8px; }
   footer { border-top: 1px solid var(--line); margin-top: 72px; padding: 28px 0 48px; text-align: center; color: var(--dim); font-size: 13px; }
   footer a { margin: 0 8px; }
 </style>
@@ -57,7 +60,7 @@
 <header>
   <div class="logo">🐋</div>
   <h1>DeepSeek Harness Desktop</h1>
-  <p class="tag">自包含的 <b>Paseo + DeepSeek Harness</b> 桌面版：<br>拖进「应用程序」双击即用，<b>手机扫码</b>就能直连你的 agent。</p>
+  <p class="tag">一站式的 <b>Paseo + DeepSeek Harness</b> 桌面版：<br>拖进「应用程序」双击即用，<b>手机扫码</b>直连 agent，<br><b>插件市场、内置预览、一键发布公网</b>全都有。</p>
   <div class="badges">
     <span class="badge">macOS 12+（Apple Silicon / Intel）</span>
     <span class="badge">MIT（内置组件见许可页）</span>
@@ -69,7 +72,8 @@
     <a class="btn ghost" href="https://github.com/vvlife/deepseek-harness-desktop">GitHub 仓库</a>
   </div>
   <p style="margin-top:14px;font-size:13px;color:var(--dim)">
-    未做 Apple 公证：macOS 15 首次打开请右键 → 打开，或「系统设置 → 隐私与安全性 → 仍要打开」。
+    未做 Apple 公证：macOS 15 首次打开请右键 → 打开，或「系统设置 → 隐私与安全性 → 仍要打开」。<br>
+    国内访问本站立不住？试试 <a href="https://vvlife.github.io/deepseek-harness-desktop/">国内镜像（GitHub Pages）</a>。
   </p>
   <div class="install-box">
     <code id="cmd">curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/main/install.sh | bash</code>
@@ -81,27 +85,40 @@
 </header>
 
 <section>
-  <h2>为什么是它</h2>
+  <h2>五大特性</h2>
   <div class="grid">
-    <div class="card"><h3>📱 手机直连 agent</h3><p>内置完整 Paseo（daemon + 移动端配对）。Harness Web 界面一键生成配对二维码，手机 Paseo App 扫码即连，对话实时同步——出门在外也能给 agent 派活。</p></div>
-    <div class="card"><h3>🔄 会话跨端镜像</h3><p>Web 界面里的对话自动镜像成 Paseo agent：手机端实时可见（含新回合的实时推送），还能在手机上追问续聊。桌面端统一处理，手机只管发消息、看回复。</p></div>
-    <div class="card"><h3>📦 真·开箱即用</h3><p>Node 运行时、完整 dsh、完整 Paseo 全在包里。不需要 Homebrew、不需要 npm、不需要任何预装。</p></div>
-    <div class="card"><h3>🖥 双界面一键切换</h3><p>「Mobile」管 agent、「Web」（dsh 自带界面）管模型与插件，顶部一键切换、常驻不重载。LLM Key 在 Web 的「模型」设置里填，保存即用。</p></div>
-    <div class="card"><h3>🔌 提供商可选</h3><p>DeepSeek 官方（默认）/ Agnes AI / 任意 OpenAI 兼容端点。随时在 Harness Web 的模型设置里切换，互不影响。</p></div>
-    <div class="card"><h3>🛡 与本机环境隔离</h3><p>私有 PASEO_HOME / DSH_HOME 与独立端口，不读不写 <span class="inline-code">~/.dsh</span>、<span class="inline-code">~/.paseo</span>；dsh 遥测默认关闭。</p></div>
-    <div class="card"><h3>🧪 构建即全链路自测</h3><p>每个 DMG 打包时都用包内运行时真起 dsh web + Paseo daemon，注册 provider、跑通会话镜像导入与回放，全绿才发布。</p></div>
+    <div class="card"><h3>🚀 一站式安装</h3><p>Node 运行时、完整 dsh、完整 Paseo 全在包里。不需要 Homebrew、不需要 npm、不需要任何预装——拖进「应用程序」，双击，完。provider 已自动注册，没有强行向导。</p></div>
+    <div class="card"><h3>📱 移动端访问</h3><p>内置完整 Paseo 移动端直连：一键生成配对二维码，手机 Paseo App 扫码即连（官方 relay，端到端加密）。Web 界面的对话自动镜像上手机，实时可见、可追问续聊；退出 APP 服务默认常驻。</p></div>
+    <div class="card"><h3>🧩 插件市场</h3><p>接上 <a href="https://whalehub-dsh.vercel.app">WhaleHub</a> 市场插件（一条命令），「设置 → Plugins」多出「🐋 插件市场」Tab：66+ 社区插件浏览、搜索、<b>点一下就装好</b>。<br><code>dsh plugin --profile web add "github:vvlife/whalehub-dsh#main&amp;path:/plugin"</code></p></div>
+    <div class="card"><h3>👁 内置预览</h3><p>Web 界面自带工作区文件预览：agent 写的 HTML 页面（游戏、交互页都行）直接在侧边栏跑起来，改完刷新即看，不用离开对话。</p></div>
+    <div class="card"><h3>🌐 发布公网</h3><p>装上 <a href="https://github.com/vvlife/dsh-deploy-share">dsh-deploy-share</a> 插件（一条命令），HTML 预览顶部出现「🚀 部署 / 📋 分享」：一键部署到免账号匿名托管，回读校验通过才算成功，拿到公开链接直接发给别人。<br><code>dsh plugin --profile web add github:vvlife/dsh-deploy-share</code></p></div>
+    <div class="card"><h3>🛡 与本机环境隔离</h3><p>私有 PASEO_HOME / DSH_HOME 与独立端口，不读不写 <span class="inline-code">~/.dsh</span>、<span class="inline-code">~/.paseo</span>；dsh 遥测默认关闭。你已有的实例照常运行。</p></div>
   </div>
 </section>
 
 <section>
   <h2>看一眼</h2>
   <div class="grid" style="grid-template-columns:1fr 1fr;align-items:start">
-    <a href="images/shot-paseo.png"><img src="images/shot-paseo.png" alt="Paseo 界面：agent 与工作区" style="width:100%;border-radius:12px;border:1px solid var(--line)"></a>
-    <a href="images/shot-harness-web.png"><img src="images/shot-harness-web.png" alt="Harness Web 界面（dsh web）" style="width:100%;border-radius:12px;border:1px solid var(--line)"></a>
+    <div>
+      <a href="images/shot-paseo.png"><img class="shot" src="images/shot-paseo.png" alt="打开即用：Paseo 界面，provider 已注册"></a>
+      <p class="cap">打开即用：Paseo 界面，「DeepSeek Harness」provider 已注册</p>
+    </div>
+    <div>
+      <a href="images/shot-harness-web.png"><img class="shot" src="images/shot-harness-web.png" alt="Harness Web 界面（dsh web）"></a>
+      <p class="cap">Web 界面（dsh web）：模型、插件、预览都在这里</p>
+    </div>
+    <div>
+      <a href="images/shot-plugin-market.png"><img class="shot" src="images/shot-plugin-market.png" alt="Web 界面内置的 WhaleHub 插件市场"></a>
+      <p class="cap">插件市场 Tab：66+ 社区插件一键安装</p>
+    </div>
+    <div>
+      <a href="images/shot-deploy-share.png"><img class="shot" src="images/shot-deploy-share.png" alt="HTML 预览 + 一键部署到公网"></a>
+      <p class="cap">HTML 预览 + 🚀 一键部署到公网，拿到链接即分享</p>
+    </div>
   </div>
-  <p style="margin-top:14px">
+  <p style="margin-top:20px">
     <a href="images/shot-mobile-mirror.png"><img src="images/shot-mobile-mirror.png" alt="手机端看到 Harness Web 的镜像对话" style="width:min(360px,80%);border-radius:16px;border:1px solid var(--line);display:block;margin:0 auto"></a>
-    <p style="text-align:center;font-size:13px;color:var(--dim)">手机端（Paseo App）实时看到 Harness Web 里的对话，还能直接追问。</p>
+    <p class="cap">手机端（Paseo App）实时看到 Web 界面里的对话，还能直接追问。</p>
   </p>
 </section>
 
@@ -111,6 +128,7 @@
     <div class="step"><div><b>拖进应用程序</b><span>下载 DMG，打开，把鲸鱼图标拖进 Applications。就这一步。</span></div></div>
     <div class="step"><div><b>双击打开</b><span>内置 Paseo 界面直接出现在窗口里，「DeepSeek Harness」provider 已自动注册。新建 agent 选它即可。</span></div></div>
     <div class="step"><div><b>配 Key，开聊</b><span>切到 Web 界面，在「模型」设置里粘贴 Key 保存。想用手机？点界面右上角手机图标生成配对二维码，Paseo App 扫码直连。</span></div></div>
+    <div class="step"><div><b>装上市场，解锁全部玩法</b><span>一条命令接入 WhaleHub 插件市场：皮肤、TUI、视觉工具、HTML 预览增强、一键发布公网……点一下就装好。</span></div></div>
   </div>
 </section>
 
@@ -119,7 +137,8 @@
   <div class="faq">
     <details><summary>DMG 为什么有 350MB？</summary><p>零前置依赖的代价：Node 运行时、完整 dsh、完整 Paseo（含 Apple Silicon / Intel 双架构原生模块）都在包里。换来不需要预装任何东西，也绝不污染你本机的开发环境。</p></details>
     <details><summary>手机怎么连？</summary><p>Web 界面右上角手机图标 →「生成配对二维码」→ 手机 Paseo App 扫码（或打开配对链接），经 Paseo 官方 relay 直连本 APP 的内置服务，端到端加密。退出 APP 后服务默认保持运行，移动端可继续连接。若提示超时，点「刷新配对码」立刻重扫。</p></details>
-    <details><summary>“DeepSeek 登录”是什么形式？</summary><p>DeepSeek API 没有账号 OAuth。去 platform.deepseek.com 登录账号、创建 API Key，粘贴到 Harness Web 界面的「模型」设置即可。Key 只存本机 APP 私有的 <span class="inline-code">.credentials.yaml</span>（0600）。</p></details>
+    <details><summary>插件市场 / 发布公网是内置的吗？</summary><p>dsh 的插件体系是 APP 完整内置的；「插件市场 Tab」由 WhaleHub 市场插件提供，「部署分享按钮」由 dsh-deploy-share 插件提供——都是一条 <span class="inline-code">dsh plugin add</span> 命令装好（命令见上方特性卡片），装完重启 Web 界面即得图形化体验。</p></details>
+    <details><summary>“DeepSeek 登录”是什么形式？</summary><p>DeepSeek API 没有账号 OAuth。去 platform.deepseek.com 登录账号、创建 API Key，粘贴到 Web 界面的「模型」设置即可。Key 只存本机 APP 私有的 <span class="inline-code">.credentials.yaml</span>（0600）。</p></details>
     <details><summary>会动我本地的 dsh / Paseo 吗？</summary><p>不会。APP 用私有 home 与独立端口（避开 6767），与 <span class="inline-code">~/.dsh</span>、<span class="inline-code">~/.paseo</span> 完全无关，你已有的实例照常运行。</p></details>
     <details><summary>DMG 被 Gatekeeper 拦怎么办？</summary><p>APP 未做 Apple 公证。右键 → 打开；或系统设置 → 隐私与安全性 → 仍要打开；或 <span class="inline-code">xattr -d com.apple.quarantine /Applications/"DeepSeek Harness Desktop.app"</span>。介意的话可用上面的 curl 命令，不触发 Gatekeeper。</p></details>
     <details><summary>怎么卸载？</summary><p>停掉内置服务（APP 内置 paseo CLI daemon stop），APP 拖进废纸篓，再删 <span class="inline-code">~/Library/Application Support/DeepSeek Harness Desktop</span>。没有残留。</p></details>
@@ -129,6 +148,8 @@
 <footer>
   <p>
     <a href="https://github.com/vvlife/deepseek-harness-desktop">GitHub</a>·
+    <a href="https://vvlife.github.io/deepseek-harness-desktop/">国内镜像</a>·
+    <a href="https://whalehub-dsh.vercel.app">WhaleHub 插件市场</a>·
     <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>·
     <a href="https://github.com/getpaseo/paseo">Paseo（AGPL-3.0）</a>·
     <a href="https://agentclientprotocol.com">ACP</a>

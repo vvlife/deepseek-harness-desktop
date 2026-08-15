@@ -1,28 +1,69 @@
 # DeepSeek Harness Desktop
 
-**[🐋 宣传站](https://dsh-desktop.vercel.app)** ·
+**[🐋 宣传站](https://dsh-desktop.vercel.app)**（[国内镜像](https://vvlife.github.io/deepseek-harness-desktop/)）·
 **[⬇ DMG 下载](https://github.com/vvlife/deepseek-harness-desktop/releases/latest)** ·
 [Release Notes](https://github.com/vvlife/deepseek-harness-desktop/releases)
 
-一个**自包含**的 macOS APP：内置 Node 运行时、完整的 [Paseo](https://github.com/getpaseo/paseo)
-（daemon + Web UI + **移动端直连**）与完整的 [DeepSeek Harness（dsh）](https://github.com/deepseek-ai/deepseek-harness)
-（经 ACP 桥注册为 Paseo 的 **DeepSeek Harness** provider）。拖进「应用程序」双击即用——
-**不需要预装任何东西**；使用私有 `PASEO_HOME` / `DSH_HOME` 与非默认端口，
-**不读不写、也不干扰**你本机已有的 dsh 和 Paseo。首次打开**不会**要求填 provider；
-需要时在 Harness Web 界面的「模型」设置里配置即可（DeepSeek 官方 / Agnes AI / 自定义 OpenAI 兼容端点）。
+**DeepSeek Harness（dsh）的一站式 macOS 桌面版**：把 Node 运行时、完整的 dsh、完整的
+[Paseo](https://github.com/getpaseo/paseo)（daemon + Web UI + 移动端直连）全部打进一个 APP。
+拖进「应用程序」双击即用——**不需要预装任何东西**；手机上扫码就能直连你的 agent；
+再接上插件市场，HTML 预览、公网发布点一下就完事。
 
-<p>
-  <img src="docs/images/shot-paseo.png" width="49%" alt="Paseo 界面">
-  <img src="docs/images/shot-harness-web.png" width="49%" alt="Harness Web 界面">
-  <br>
-  <img src="docs/images/shot-mobile-mirror.png" width="32%" alt="手机端实时看到 Harness Web 的镜像对话">
-</p>
+使用私有 `PASEO_HOME` / `DSH_HOME` 与非默认端口，**不读不写、也不干扰**你本机已有的 dsh 和 Paseo。
+
+## 五大特性
+
+### 🚀 一站式安装：拖进「应用程序」，双击，完
+
+Node v22 运行时、完整 dsh、完整 Paseo（daemon + Web UI + 移动端配对）全在包里——
+不需要 Homebrew、不需要 npm、不需要任何预装。dsh 经零依赖 ACP 桥自动注册为 Paseo 的
+「DeepSeek Harness」provider，打开就在列表里，没有强行引导向导。
+
+<p><img src="docs/images/shot-paseo.png" width="72%" alt="打开即用：Paseo 界面，provider 已注册"></p>
+
+### 📱 移动端访问：手机扫码，agent 随身走
+
+内置完整 Paseo 移动端直连：Web 界面一键生成配对二维码，手机 Paseo App 扫码即连
+（经官方 relay，端到端加密）。Web 界面里的对话还会**自动镜像**成 Paseo agent——
+手机端实时可见（含思考过程），还能在手机上追问续聊。退出 APP 服务默认保持运行，移动端不掉线。
+
+<p><img src="docs/images/shot-mobile-mirror.png" width="32%" alt="手机端实时看到 Harness Web 的镜像对话"></p>
+
+### 🧩 插件市场：66+ 社区插件，点一下就装好
+
+dsh 的信条是「Everything is a Plugin」。接上 [WhaleHub](https://github.com/vvlife/whalehub-dsh)
+市场插件后，Web 界面的「设置 → Plugins」会多出「**🐋 插件市场**」Tab：浏览、搜索、
+**一键安装**皮肤、TUI、视觉工具、工作流等 66+ 社区插件，不用再翻仓库抄命令：
+
+```sh
+dsh plugin --profile web add "github:vvlife/whalehub-dsh#main&path:/plugin"
+# 重启 Web 界面 → 设置 → Plugins → 🐋 插件市场
+```
+
+<p><img src="docs/images/shot-plugin-market.png" width="72%" alt="Web 界面内置的 WhaleHub 插件市场"></p>
+
+### 👁 内置预览：HTML / 文件即点即看
+
+Web 界面自带工作区文件预览，HTML 页面（含游戏、交互页）直接在侧边栏里跑，
+改完刷新即看，不用离开对话。
+
+### 🌐 发布公网：一键部署，拿到链接就分享
+
+装上 [dsh-deploy-share](https://github.com/vvlife/dsh-deploy-share) 插件，HTML 预览顶部多出
+「🚀 部署 / 📋 分享」按钮：把 agent 写的页面一键部署到**免账号**匿名托管，
+拿到公开链接发给任何人；部署后自动回读校验，真渲染成功才算数：
+
+```sh
+dsh plugin --profile web add github:vvlife/dsh-deploy-share
+```
+
+<p><img src="docs/images/shot-deploy-share.png" width="72%" alt="HTML 预览 + 一键部署到公网"></p>
 
 > A self-contained macOS app bundling a universal Node runtime + full Paseo
 > (daemon, Web UI, mobile pairing) + full DeepSeek Harness as a Paseo provider
-> (via a zero-dependency ACP bridge). Drag to Applications and go — no prerequisites,
-> no provider wizard on first launch, and fully isolated from any dsh/Paseo
-> you already have installed.
+> (via a zero-dependency ACP bridge). Drag to Applications and go — one-stop install,
+> mobile access, a plugin marketplace, built-in preview and one-click public deploy
+> (via plugins), fully isolated from any dsh/Paseo you already have installed.
 
 ## 安装（DMG，推荐）
 
@@ -36,6 +77,8 @@
 工具栏可在「**Mobile / Web**」两个界面间切换（Mobile = Paseo agent 界面，与手机同步；
 Web = dsh 自带的 Web 界面，同一私有 `DSH_HOME`；两个视图常驻内存，切换不重载）。
 要真正对话时：切到 **Web** 界面 → 其内置设置的「模型」页粘贴 DeepSeek 官方或 Agnes 的 API Key，保存即可。
+
+<p><img src="docs/images/shot-harness-web.png" width="72%" alt="Harness Web 界面"></p>
 
 ### 移动端直连（手机遥控 agent）
 
@@ -142,6 +185,10 @@ DMG 构建时会做更完整的自测：包内运行时真启动一次 dsh web �
 
 **会动我本地的 dsh / Paseo 吗？** 不会。私有 home + 独立端口，和你已有的实例完全平行；
 你的 Paseo（若有）照常使用 `~/.paseo` 与 6767 端口。
+
+**插件市场 / 公网发布是 APP 内置的吗？** 插件体系是 dsh 原生的，APP 里的 Web 界面完整支持；
+「插件市场 Tab」和「部署分享按钮」分别由 WhaleHub 市场插件与 dsh-deploy-share 插件提供，
+都是一条 `dsh plugin add` 命令装好（命令见上文对应小节）。
 
 **Paseo 里的对话为什么没有上下文？** 每个 prompt 回合是一次独立的 `dsh --profile headless`
 运行（dsh headless 无 resume），回合间不保留对话上下文。
