@@ -54,10 +54,18 @@ jobs:
           codesign -dv --verbose=2 "app/build/DeepSeek Harness Desktop.app" 2>&1 \
             | grep "^Authority=DSH Desktop Local Code Signing"
 
-      - name: 上传 DMG 到 Release（不存在则先创建）
+      - name: 上传 DMG 到 Release（不存在则先创建，附 CHANGELOG 更新日志）
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
-            gh release create "$GITHUB_REF_NAME" --generate-notes
+          NOTES="$(mktemp)"
+          # 取 CHANGELOG.md 最新版本（首个 ## [ 段）作为发布说明
+          awk '/^## \[/{ if (seen) exit; seen=1 } seen{ print }' CHANGELOG.md > "$NOTES"
+          if [ -s "$NOTES" ]; then
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+              gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$NOTES"
+          else
+            gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+              gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          fi
           gh release upload "$GITHUB_REF_NAME" app/build/*.dmg --clobber
