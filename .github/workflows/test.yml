@@ -14,7 +14,10 @@ jobs:
       - name: 静态检查
         run: |
           bash -n install.sh
-          for f in bridge/*.mjs scripts/*.mjs; do node --check "$f"; done
+          for f in bridge/*.mjs scripts/*.mjs plugin/*.js plugin/*.mjs; do node --check "$f"; done
+
+      - name: 免 Key 搜索插件 fixture 单测（离线）
+        run: node plugin/test.mjs --offline
 
       - name: 隔离单测（临时 DSH_HOME / PASEO_HOME，无真实 dsh/paseo/凭据）
         env:
@@ -44,3 +47,9 @@ jobs:
 
       - name: 冒烟自检（含 dsh --dump-config）
         run: node scripts/smoke-test.mjs
+
+      - name: 免 Key 搜索插件：装进 web profile + 在线实测
+        run: |
+          dsh plugin --profile web add "link:$PWD/plugin"
+          dsh --profile web --dump-config | grep -q "searchProvider: free"
+          node plugin/test.mjs

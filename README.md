@@ -15,7 +15,7 @@
 
 使用私有 `PASEO_HOME` / `DSH_HOME` 与非默认端口，**不读不写、也不干扰**你本机已有的 dsh 和 Paseo。
 
-## 五大特性
+## 六大特性
 
 ### 🚀 一站式安装：拖进「应用程序」，双击，完
 
@@ -64,11 +64,28 @@ dsh plugin --profile web add github:vvlife/dsh-deploy-share
 
 <p><img src="docs/images/shot-deploy-share.png" width="72%" alt="HTML 预览 + 一键部署到公网"></p>
 
+### 🔎 免 Key 联网搜索：web_search 不烧模型额度
+
+内置 web_search 默认走 DeepSeek 官方搜索 provider：每次搜索是一次模型调用，
+需要 `DEEPSEEK_API_KEY` 且消耗 API 额度。本仓库自带 [dsh-web-search-free](plugin/)
+插件，装上后 web_search 改走**免 API Key** 通道——DuckDuckGo 与 Bing 公开搜索页
+双通道竞速，哪边先出结果用哪边（任一引擎在你的网络不可达时自动落到另一家），
+零凭据、零额度：
+
+```sh
+dsh plugin --profile web add "github:vvlife/deepseek-harness-desktop#main&path:/plugin"
+```
+
+装上即接管 web_search（web seam 的 `searchProvider` 指向 `free`）；
+想改回官方搜索，卸载插件即可。插件零依赖，自测见 `plugin/test.mjs`
+（离线 fixture + 在线实测）。
+
 > A self-contained macOS app bundling a universal Node runtime + full Paseo
 > (daemon, Web UI, mobile pairing) + full DeepSeek Harness as a Paseo provider
 > (via a zero-dependency ACP bridge). Drag to Applications and go — one-stop install,
-> mobile access, a plugin marketplace, built-in preview and one-click public deploy
-> (via plugins), fully isolated from any dsh/Paseo you already have installed.
+> mobile access, a plugin marketplace, built-in preview, one-click public deploy
+> and optional key-free web search (via plugins), fully isolated from any dsh/Paseo
+> you already have installed.
 
 ## 安装（DMG，推荐）
 
@@ -191,9 +208,10 @@ DMG 构建时会做更完整的自测：包内运行时真启动一次 dsh web �
 **会动我本地的 dsh / Paseo 吗？** 不会。私有 home + 独立端口，和你已有的实例完全平行；
 你的 Paseo（若有）照常使用 `~/.paseo` 与 6767 端口。
 
-**插件市场 / 公网发布是 APP 内置的吗？** 插件体系是 dsh 原生的，APP 里的 Web 界面完整支持；
-「插件市场 Tab」和「部署分享按钮」分别由 WhaleHub 市场插件与 dsh-deploy-share 插件提供，
-都是一条 `dsh plugin add` 命令装好（命令见上文对应小节）。
+**插件市场 / 公网发布 / 免 Key 搜索是 APP 内置的吗？** 插件体系是 dsh 原生的，APP 里的 Web 界面完整支持；
+「插件市场 Tab」「部署分享按钮」「免 Key web_search」分别由 WhaleHub 市场插件、dsh-deploy-share
+插件与本仓库自带的 dsh-web-search-free 插件提供，都是一条 `dsh plugin add` 命令装好
+（命令见上文对应小节）。
 
 **Paseo 里的对话为什么没有上下文？** 每个 prompt 回合是一次独立的 `dsh --profile headless`
 运行（dsh headless 无 resume），回合间不保留对话上下文。

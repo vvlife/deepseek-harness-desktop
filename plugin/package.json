@@ -1,0 +1,17 @@
+{
+  "name": "dsh-web-search-free",
+  "version": "0.1.0",
+  "private": true,
+  "description": "免 API Key 的 web_search 备选 provider：DuckDuckGo 与 Bing 公开搜索页双通道竞速，无需任何凭据",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# dsh-web-search-free bundle patch：由 dsh plugin add 安装后自动挂载进 profile。
+- insert:
+    - id: web-search-free
+      name: 'dsh-web-search-free'
+
+# 装上即接管 web_search：把 web seam 的 searchProvider 从 deepseek-official 指到免 Key 的 free
+# （patch 语义是整段 config 替换；web 行原本只有 searchProvider 一个键，无其他损失）。
+# 想改回官方搜索：dsh plugin remove 本插件，或在自己 profile 的 cordis.patch.yml 里
+# 把 web 行的 searchProvider 改回 deepseek-official。
+- id: web
+  config:
+    searchProvider: free

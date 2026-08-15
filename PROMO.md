@@ -19,7 +19,7 @@
 
 ---
 
-## 五大特性
+## 六大特性
 
 ### 🚀 一站式安装
 
@@ -64,6 +64,18 @@ dsh plugin --profile web add github:vvlife/dsh-deploy-share
 
 ![HTML 预览 + 一键部署到公网](docs/images/shot-deploy-share.png)
 
+### 🔎 免 Key 联网搜索
+
+内置 web_search 默认每次搜索消耗一次模型调用、要 `DEEPSEEK_API_KEY`。
+本仓库自带 dsh-web-search-free 插件，装上后 web_search 改走**免 API Key** 通道：
+DuckDuckGo 与 Bing 公开搜索页双通道竞速，一家不可达自动落另一家，零凭据零额度：
+
+```sh
+dsh plugin --profile web add "github:vvlife/deepseek-harness-desktop#main&path:/plugin"
+```
+
+装上即接管 web_search；想改回官方搜索，卸载插件即可。
+
 ---
 
 ## 一分钟上手
@@ -91,6 +103,7 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 | **🧩 插件市场** | 接上 WhaleHub 即得图形化市场，66+ 社区插件一键安装 |
 | **👁 内置预览** | HTML / 工作区文件即点即看，交互页直接跑 |
 | **🌐 发布公网** | dsh-deploy-share 一键部署到免账号托管，拿到链接即分享 |
+| **🔎 免 Key 联网搜索** | dsh-web-search-free 双引擎竞速，web_search 不要 Key、不烧模型额度 |
 | **🔌 提供商可选** | DeepSeek 官方 / Agnes / 任意 OpenAI 兼容端点，随时切换 |
 | **🛡 与环境隔离** | 私有 home + 独立端口，不碰 `~/.dsh`、`~/.paseo`；遥测默认关 |
 | **🧪 构建即自测** | 每个 DMG 打包时真起 dsh + Paseo daemon 注册 provider，全绿才发布 |
@@ -100,7 +113,7 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 ## 几个诚实的说明
 
 1. **DMG 有 350MB**：零前置依赖的代价。Node 运行时 + 完整 dsh + 完整 Paseo（含双架构原生模块）都在里面。
-2. **插件市场 / 公网发布是插件提供的**：dsh 的插件体系 APP 完整支持，WhaleHub 市场与 dsh-deploy-share 各一条命令装好（见上文），装上就是图形化体验。
+2. **插件市场 / 公网发布 / 免 Key 搜索是插件提供的**：dsh 的插件体系 APP 完整支持，WhaleHub 市场、dsh-deploy-share 与本仓库自带的 dsh-web-search-free 各一条命令装好（见上文），装上就是图形化体验。
 3. **DeepSeek 不支持 OAuth 登录**，只能贴 API Key。「获取 Key」按钮会帮你打开 platform.deepseek.com 建 key；key 只存本机 APP 私有凭据文件（0600），不外传。
 4. **未做 Apple 公证**：macOS 15 首次打开请右键 → 打开，或在「隐私与安全性」中允许。
 5. **Paseo 为 AGPL-3.0**：APP 内的 Paseo 组件是从官方 DMG 原样解包、未经修改的服务端部分，源码与许可见仓库 `THIRD-PARTY-LICENSES.md`。
