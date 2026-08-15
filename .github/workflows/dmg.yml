@@ -42,6 +42,11 @@ jobs:
           DSH_SIGN_IDENTITY: DSH Desktop Local Code Signing
         run: bash app/make-app.sh "${GITHUB_REF_NAME#v}"
 
+      # 校验内嵌终端（dsh web PTY）解析到的 dsh/paseo/node 是包内版本，
+      # 而非本机全局安装——保证 APP 不干扰、不依赖本机已有 dsh/Paseo。
+      - name: 校验内嵌终端命令解析（bundled dsh/paseo/node）
+        run: bash scripts/verify-bundled-cli.sh "app/build/DeepSeek Harness Desktop.app"
+
       # 拒绝发出 ad-hoc 产物（ad-hoc 下用户的目录访问授权每次启动都重新弹窗）
       - name: 校验签名身份
         run: |

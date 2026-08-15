@@ -105,6 +105,18 @@ final class DaemonManager: ObservableObject {
   var cliPath: String? {
     bundledResource("runtime/paseo/node_modules/@getpaseo/cli/dist/index.js")
   }
+
+  /// 包内 CLI bin 目录：<bundle>/Contents/Resources/runtime/node/bin。
+  /// 内含内置 `node` 以及 `dsh` / `paseo` 的 shim（由 app/make-app.sh 生成）。
+  /// 把它放在 PATH 最前，内嵌终端（dsh web 的 PTY，以
+  /// `/bin/bash --noprofile --norc -i` 启动、继承父进程 PATH）里的
+  /// `dsh` / `paseo` / `node` 就会解析到包内版本，而非本机全局安装。
+  /// 这是「APP 不依赖、不干扰本机已有 dsh/Paseo」承诺的关键一环。
+  var bundledBinDir: String? {
+    guard let node = nodePath else { return nil }
+    let bin = (node as NSString).deletingLastPathComponent
+    return bin.isEmpty ? nil : bin
+  }
   var webUIDistPath: String? { bundledResource("runtime/paseo-app-dist") }
 
   /// 监听端口：首次选定后持久化（避开用户本机 Paseo 默认的 6767）
@@ -368,8 +380,17 @@ final class DaemonManager: ObservableObject {
 
   private func processEnv() -> [String: String] {
     var env = ProcessInfo.processInfo.environment
-    let runtimeBin = ((nodePath ?? "") as NSString).deletingLastPathComponent
-    env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\(runtimeBin)"
+    // 包内 bin 目录（含 dsh / paseo / node shim）必须放在 PATH 最前：
+    // 内嵌终端（dsh web 的 PTY）以 `/bin/bash --noprofile --norc -i` 启动，
+    // 不读任何 rc/profile，直接继承父进程（即本 APP 拉起的 dsh web）的 PATH，
+    // 因此放在最前的包内 shim 会优先于本机全局安装的 dsh/paseo 被命中。
+    // 若运行时缺失则退回标准 PATH，避免 PATH 以冒号开头（空段=当前目录，安全隐患）。
+    if let bin = bundledBinDir {
+      env["PATH"] = "\(bin):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      env["DSH_DESKTOP_BIN"] = bin
+    } else {
+      env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    }
     env["HOME"] = NSHomeDirectory()
     env["LANG"] = env["LANG"] ?? "en_US.UTF-8"
     env["PASEO_HOME"] = paseoHomeDir.path

@@ -137,6 +137,35 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
   移动端配对二维码在 Web 界面右上角手机图标里
 - 全部数据都在自己的 Application Support 目录，**不碰** `~/.dsh` / `~/.paseo`
 
+## 内置终端：dsh / paseo 解析保证
+
+APP 内置的 dsh web 带一个交互式终端。终端里的 `dsh` / `paseo` / `node`
+**永远指向 APP 包内的那一份**，不会误用你本机全局安装的版本——这是
+“零前置依赖、不干扰本机已有 dsh/Paseo” 承诺的关键一环。
+
+原理（双层保险）：
+
+1. **PATH 注入**：APP 拉起 dsh web 时，把包内 bin 目录
+   `<bundle>/Contents/Resources/runtime/node/bin`（内含 `node` 及 `dsh` / `paseo`
+   两个 shim）放到 `PATH` **最前**（见 `app/DesktopApp.swift` 的 `processEnv()` /
+   `bundledBinDir`）。
+2. **终端继承 PATH**：内嵌终端以 `/bin/bash --noprofile --norc -i` 启动，
+   不读取任何 `~/.bashrc` / `/etc/profile`，直接继承父进程（dsh web）的 PATH，
+   因此命中的一定是包内 shim，全局安装无法遮蔽。
+
+验证（开发者 / CI）：
+
+```sh
+# 校验内嵌终端解析到的 dsh/paseo/node 是否命中包内版本
+bash scripts/verify-bundled-cli.sh "app/build/DeepSeek Harness Desktop.app"
+
+# 想在自己终端里临时用上包内 dsh/paseo/node（不影响系统配置）：
+source app/scripts/dsh-desktop-env.sh          # 自动探测已装 APP
+# 之后 which dsh / which paseo / which node 都指向包内
+```
+
+DMG 构建流程（`dmg.yml`）在出包前会自动跑上面的校验，命中包外即失败、拒绝发版。
+
 ## 关于"DeepSeek 登录"
 
 DeepSeek 的 API **没有账号 OAuth 登录**。设置页里的「获取 Key」= 帮你打开
