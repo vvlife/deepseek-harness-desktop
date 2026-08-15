@@ -38,19 +38,22 @@ final class AppState: ObservableObject {
   @Published var showOnboarding = false
 
   enum ViewMode: String {
-    case paseo = "Paseo"
-    case harnessWeb = "Harness Web"
+    case mobile = "Mobile"
+    case web = "Web"
   }
 
-  /// 当前展示的界面：Paseo Web UI / dsh web（Harness Web）。
+  /// 当前展示的界面：Mobile（Paseo Web UI，手机同步）/ Web（dsh web，Harness）。
   /// 切换只是换「视图」——Paseo daemon 始终运行，移动端连接不受影响。
   @Published var viewMode: ViewMode {
     didSet { UserDefaults.standard.set(viewMode.rawValue, forKey: "viewMode") }
   }
 
   private init() {
-    let stored = UserDefaults.standard.string(forKey: "viewMode")
-    viewMode = ViewMode(rawValue: stored ?? "") ?? .paseo
+    // 旧版本持久化值迁移：Paseo→Mobile、Harness Web→Web
+    switch UserDefaults.standard.string(forKey: "viewMode") {
+    case "Web", "Harness Web": viewMode = .web
+    default: viewMode = .mobile
+    }
   }
 }
 
@@ -473,8 +476,9 @@ final class DaemonManager: ObservableObject {
           if case .running = self.dshWebState {
             self.dshWebState = .idle
             self.trail("dsh web 进程退出")
-            // 用户正停在该界面：自动重新拉起（adopt-first 保证不会与残留进程冲突）
-            if AppState.shared.viewMode == .harnessWeb { self.startDshWeb() }
+            // 无论当前在哪个界面都自动拉起（保持 Web 视图常驻可用，切换即时；
+            // adopt-first 保证不会与残留进程冲突）
+            self.startDshWeb()
           }
         }
       }
@@ -782,7 +786,7 @@ private struct OnboardingView: View {
 
       GroupBox {
         VStack(alignment: .leading, spacing: 8) {
-          Text("要让 agent 真正对话，需要配一个 LLM 提供商：顶部切到「Harness Web」界面 → 打开其内置设置（左侧边栏齿轮/「模型」）→ 填入 DeepSeek 官方或 Agnes 的 API Key 保存即可。配一次，两个界面通用。")
+          Text("要让 agent 真正对话，需要配一个 LLM 提供商：顶部切到「Web」界面 → 打开其内置设置（左侧边栏齿轮/「模型」）→ 填入 DeepSeek 官方或 Agnes 的 API Key 保存即可。配一次，两个界面通用。")
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -794,7 +798,7 @@ private struct OnboardingView: View {
 
       GroupBox {
         VStack(alignment: .leading, spacing: 8) {
-          Text("顶部切到「Harness Web」界面 → 右上角手机图标 → 生成配对二维码，用手机 Paseo App 扫码即可远程连到本 APP 的内置服务。Paseo 界面里的 agent 对话在手机与电脑之间实时同步；退出 APP 后服务默认保持运行，手机可继续连接。")
+          Text("顶部切到「Web」界面 → 右上角手机图标 → 生成配对二维码，用手机 Paseo App 扫码即可远程连到本 APP 的内置服务。「Mobile」界面里的 agent 对话（含 Web 界面镜像过来的对话）在手机与电脑之间实时同步；退出 APP 后服务默认保持运行，手机可继续连接。")
             .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -828,7 +832,7 @@ private struct ContentView: View {
   @State private var harnessWebCreated = false
 
   private var activeWeb: WebController {
-    appState.viewMode == .harnessWeb ? harnessWeb : paseoWeb
+    appState.viewMode == .web ? harnessWeb : paseoWeb
   }
 
   var body: some View {
@@ -846,27 +850,38 @@ private struct ContentView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
       case .running(let url):
         ZStack {
-          // Paseo 视图常驻：守护进程与移动端连接不受界面切换影响
+          // 两个视图创建后都常驻（隐藏而非销毁）：切换界面不丢会话状态、不重新加载
           WebView(url: url, controller: paseoWeb)
-            .opacity(appState.viewMode == .paseo ? 1 : 0)
-            .allowsHitTesting(appState.viewMode == .paseo)
+            .opacity(appState.viewMode == .mobile ? 1 : 0)
+            .allowsHitTesting(appState.viewMode == .mobile)
 
-          if appState.viewMode == .harnessWeb {
-            harnessWebContent
+          if harnessWebCreated {
+            WebView(url: daemon.dshWebURL, controller: harnessWeb)
+              .opacity(appState.viewMode == .web ? 1 : 0)
+              .allowsHitTesting(appState.viewMode == .web)
+          }
+
+          // 首次进入 Web 界面且服务未就绪/失败时的遮盖层（仅在 WebView 创建前出现）
+          if appState.viewMode == .web, !harnessWebCreated {
+            harnessWebOverlay
           }
         }
         .onAppear {
-          if appState.viewMode == .harnessWeb, daemon.dshWebState != .running {
+          if appState.viewMode == .web, daemon.dshWebState != .running {
             daemon.startDshWeb()
           }
         }
         .onChange(of: appState.viewMode) { mode in
-          if mode == .harnessWeb, daemon.dshWebState != .running {
+          if mode == .web, daemon.dshWebState != .running {
             daemon.startDshWeb()
           }
         }
         .onChange(of: daemon.dshWebState) { state in
-          if state == .running { harnessWebCreated = true }
+          if state == .running {
+            // 进程死后重启成功：常驻 WebView 里的页面已失效，刷新一次
+            if harnessWebCreated { harnessWeb.reload() }
+            harnessWebCreated = true
+          }
         }
       case .failed(let message):
         VStack(alignment: .leading, spacing: 12) {
@@ -897,15 +912,15 @@ private struct ContentView: View {
     .toolbar {
       ToolbarItemGroup(placement: .principal) {
         Picker("界面", selection: $appState.viewMode) {
-          Text(AppState.ViewMode.paseo.rawValue).tag(AppState.ViewMode.paseo)
-          Text(AppState.ViewMode.harnessWeb.rawValue).tag(AppState.ViewMode.harnessWeb)
+          Text(AppState.ViewMode.mobile.rawValue).tag(AppState.ViewMode.mobile)
+          Text(AppState.ViewMode.web.rawValue).tag(AppState.ViewMode.web)
         }
         .pickerStyle(.segmented)
         .frame(width: 220)
         .disabled(!isDaemonRunning)
       }
       ToolbarItemGroup {
-        if appState.viewMode == .harnessWeb {
+        if appState.viewMode == .web {
           Button { appState.showPairing = true } label: { Label("移动端直连", systemImage: "iphone") }
             .disabled(!isDaemonRunning)
         }
@@ -933,15 +948,13 @@ private struct ContentView: View {
     }
   }
 
-  /// Harness Web 视图内容（dsh web）。WebView 常驻，仅首次进入时拉起服务。
+  /// Web 视图（dsh web）首次就绪前的启动/失败遮盖层；WebView 创建后不再经过这里
   @ViewBuilder
-  private var harnessWebContent: some View {
+  private var harnessWebOverlay: some View {
     switch daemon.dshWebState {
-    case .running where harnessWebCreated:
-      WebView(url: daemon.dshWebURL, controller: harnessWeb)
     case .failed(let message):
       VStack(spacing: 12) {
-        Label("Harness Web 未能运行", systemImage: "exclamationmark.triangle.fill")
+        Label("Web 界面未能运行", systemImage: "exclamationmark.triangle.fill")
           .font(.title3.weight(.bold))
         Text(message).foregroundStyle(.secondary)
         Button("重试") { daemon.startDshWeb() }.buttonStyle(.borderedProminent)
@@ -951,7 +964,7 @@ private struct ContentView: View {
     default:
       VStack(spacing: 14) {
         ProgressView()
-        Text("正在启动 Harness Web…").foregroundStyle(.secondary)
+        Text("正在启动 Web 界面…").foregroundStyle(.secondary)
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
       .background(Color(nsColor: .windowBackgroundColor))
