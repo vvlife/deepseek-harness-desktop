@@ -50,6 +50,7 @@ jobs:
 
       - name: 免 Key 搜索插件：装进 web profile + 在线实测
         run: |
+          npm install -g pnpm
           dsh plugin --profile web add "link:$PWD/plugin"
           dsh --profile web --dump-config | grep -q "searchProvider: free"
           node plugin/test.mjs
