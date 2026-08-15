@@ -23,8 +23,8 @@ jobs:
         run: |
           set -e
           mkdir -p "$PASEO_HOME" "$DSH_HOME/paseo-bridge"
-          cp bridge/dsh-acp-bridge.mjs "$DSH_HOME/paseo-bridge/"
-          chmod 755 "$DSH_HOME/paseo-bridge/dsh-acp-bridge.mjs"
+          cp bridge/*.mjs "$DSH_HOME/paseo-bridge/"
+          chmod 755 "$DSH_HOME/paseo-bridge/"*.mjs
           node scripts/setup-provider.mjs --provider deepseek --key sk-ci-test --yes
           node scripts/setup-provider.mjs --provider agnes --key sk-ci-test --yes
           node scripts/setup-provider.mjs --provider custom --base-url https://example.com/v1 --model test-model --key sk-ci-test --yes
