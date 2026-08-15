@@ -155,7 +155,10 @@ APP 固定 serverId 并在身份变化时自动重置 Web UI 本地数据；旧�
 并升级为自包含桌面 APP。旧插件不受影响。
 
 **本地构建 DMG？** `app/make-app.sh`（swiftc 直编 SwiftUI + Node 官方 dist lipo 合并 +
-npm 双架构 dsh 依赖树合并 + Paseo 官方 DMG 解包双架构合并 + ad-hoc 签名 + 全链路自测 + hdiutil）。
+npm 双架构 dsh 依赖树合并 + Paseo 官方 DMG 解包双架构合并 + 签名 + 全链路自测 + hdiutil）。
+签名优先使用钥匙串中的自签证书「DSH Desktop Local Code Signing」（身份稳定，macOS 的
+目录访问授权按证书锚定、跨启动与重新构建持久）；没有该证书时回退 ad-hoc（授权记录无法
+匹配，每次启动都会重新弹「访问文稿文件夹」授权框）。
 
 ## 许可
 

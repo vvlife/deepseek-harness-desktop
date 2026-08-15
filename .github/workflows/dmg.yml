@@ -14,8 +14,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 构建 universal DMG（ad-hoc 签名）
+      # 自签证书「DSH Desktop Local Code Signing」导入临时 keychain。
+      # 身份稳定：macOS 目录访问授权按证书锚定，用户只需授权一次，跨启动/升级持久。
+      - name: 准备签名身份（secrets.DSH_SIGNING_P12 → 临时 keychain）
+        env:
+          DSH_SIGNING_P12: ${{ secrets.DSH_SIGNING_P12 }}
+          DSH_SIGNING_P12_PASSWORD: ${{ secrets.DSH_SIGNING_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/dsh-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$DSH_SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/dsh-signing.p12"
+          security import "$RUNNER_TEMP/dsh-signing.p12" -k "$KEYCHAIN" \
+            -P "$DSH_SIGNING_P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" \
+            $(security list-keychains -d user | sed -e 's/"//g')
+          rm -f "$RUNNER_TEMP/dsh-signing.p12"
+          security find-identity -p codesigning | grep "DSH Desktop Local Code Signing"
+
+      - name: 构建 universal DMG（自签证书签名）
+        env:
+          DSH_SIGN_IDENTITY: DSH Desktop Local Code Signing
         run: bash app/make-app.sh "${GITHUB_REF_NAME#v}"
+
+      # 拒绝发出 ad-hoc 产物（ad-hoc 下用户的目录访问授权每次启动都重新弹窗）
+      - name: 校验签名身份
+        run: |
+          codesign --verify --deep --strict "app/build/DeepSeek Harness Desktop.app"
+          codesign -dv --verbose=2 "app/build/DeepSeek Harness Desktop.app" 2>&1 \
+            | grep "^Authority=DSH Desktop Local Code Signing"
 
       - name: 上传 DMG 到 Release（不存在则先创建）
         env:

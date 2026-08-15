@@ -10,8 +10,13 @@
 #
 # 构建机需要：swiftc（xcode-select --install）、curl、node+npm（用于 dsh 依赖树与 asar 解包）。
 # 产出：app/build/DeepSeek-Harness-Desktop-<version>.dmg
-# 无付费开发者账号：ad-hoc 签名（--sign -）。用户在 macOS 15 首次打开需
-# 「系统设置 → 隐私与安全性 → 仍要打开」，或 xattr -d com.apple.quarantine。
+#
+# 签名：优先使用钥匙串里的「DSH Desktop Local Code Signing」自签名证书（身份稳定，
+# macOS 的目录访问授权按证书锚定、跨重新构建持久，不会每次构建后重新弹窗）；
+# 没有该证书则回退 ad-hoc（--sign -，cdhash 逐构建变化，授权记录随之失效）。
+# 可用 DSH_SIGN_IDENTITY 显式指定身份（如 "Apple Development: …"，"-" 强制 ad-hoc）。
+# 无付费开发者账号：用户在 macOS 15 首次打开需「系统设置 → 隐私与安全性 → 仍要打开」，
+# 或 xattr -d com.apple.quarantine。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -270,10 +275,22 @@ swiftc -O -o "$BUILD/make-icon" "$APP_SRC/make-icon.swift"
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$RES/AppIcon.icns"
 
 # ---------------------------------------------------------------------------
-# 5. 签名（ad-hoc；--deep 覆盖 node 与全部 .node）
+# 5. 签名（优先稳定身份「DSH Desktop Local Code Signing」，否则 ad-hoc；--deep 覆盖 node 与全部 .node）
 # ---------------------------------------------------------------------------
-log "ad-hoc 签名（文件较多，需一两分钟）"
-codesign --force --deep --sign - "$APP"
+SIGN_IDENTITY="${DSH_SIGN_IDENTITY:-}"
+if [ -z "$SIGN_IDENTITY" ]; then
+  if security find-identity -v -p codesigning 2>/dev/null | grep -q "DSH Desktop Local Code Signing"; then
+    SIGN_IDENTITY="DSH Desktop Local Code Signing"
+  else
+    SIGN_IDENTITY="-"
+  fi
+fi
+if [ "$SIGN_IDENTITY" = "-" ]; then
+  log "ad-hoc 签名（文件较多，需一两分钟）"
+else
+  log "签名（身份：$SIGN_IDENTITY；文件较多，需一两分钟）"
+fi
+codesign --force --deep --sign "$SIGN_IDENTITY" "$APP"
 codesign --verify --deep --strict --verbose=1 "$APP"
 
 # ---------------------------------------------------------------------------
