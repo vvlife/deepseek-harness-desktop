@@ -159,9 +159,9 @@ fi
 # --- 4. ACP 桥 + 首次配置向导 ----------------------------------------------------
 log "安装 ACP 桥"
 mkdir -p "$BRIDGE_DIR"
-cp "$REPO_DIR/bridge/dsh-acp-bridge.mjs" "$BRIDGE_DIR/dsh-acp-bridge.mjs"
-chmod 755 "$BRIDGE_DIR/dsh-acp-bridge.mjs"
-ok "桥已就位 $BRIDGE_DIR/dsh-acp-bridge.mjs"
+cp "$REPO_DIR/bridge/"*.mjs "$BRIDGE_DIR/"
+chmod 755 "$BRIDGE_DIR/"*.mjs
+ok "桥已就位 $BRIDGE_DIR（dsh-acp-bridge.mjs + dsh-sessions.mjs）"
 
 log "首次运行配置（provider 选择 + 凭据）"
 node "$REPO_DIR/scripts/setup-provider.mjs" "${SETUP_ARGS[@]}"

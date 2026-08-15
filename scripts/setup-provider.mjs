@@ -353,6 +353,7 @@ function uninstall() {
   writeRoutePatch(null);
   rmSync(PROVIDER_JSON, { force: true });
   rmSync(BRIDGE_PATH, { force: true });
+  rmSync(join(BRIDGE_DIR, "dsh-sessions.mjs"), { force: true });
   try {
     rmdirSync(BRIDGE_DIR);
   } catch {
