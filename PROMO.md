@@ -47,6 +47,17 @@ dsh plugin --profile web add "github:vvlife/whalehub-dsh#main&path:/plugin"
 
 ![Web 界面内置的 WhaleHub 插件市场](docs/images/shot-plugin-market.png)
 
+### 🗂 技能管理
+
+再装一个 [dsh-skill-manager](https://github.com/vvlife/dsh-skill-manager) 插件（同样一条命令），
+「设置」就多出「🧩 技能管理」面板：卡片式浏览全局（`~/.dsh/skills/`）与项目级
+（`.agents/skills/`、`.claude/skills/`）skills，新建 / 编辑 / 删除 / 导入一步到位；
+另带「🐋 ClawHub」市场 tab，从 GitHub 社区仓库浏览并一键安装技能：
+
+```sh
+dsh plugin --profile web add github:vvlife/dsh-skill-manager
+```
+
 ### 👁 内置预览
 
 Web 界面自带工作区文件预览：agent 写的 HTML 页面（游戏、交互页都行）直接在侧边栏跑起来，
@@ -101,6 +112,7 @@ curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/mai
 | **🚀 一站式安装** | Node + 完整 dsh + 完整 Paseo 都在包里，拖进应用程序双击即用，零前置依赖 |
 | **📱 移动端访问** | 内置 Paseo 配对二维码，手机扫码即连；Web 会话自动镜像上手机，可追问续聊 |
 | **🧩 插件市场** | 接上 WhaleHub 即得图形化市场，66+ 社区插件一键安装 |
+| **🗂 技能管理** | dsh-skill-manager 集中管理全局/项目级 skills，带 ClawHub 市场 |
 | **👁 内置预览** | HTML / 工作区文件即点即看，交互页直接跑 |
 | **🌐 发布公网** | dsh-deploy-share 一键部署到免账号托管，拿到链接即分享 |
 | **🔎 免 Key 联网搜索** | dsh-web-search-free 双引擎竞速，web_search 不要 Key、不烧模型额度 |

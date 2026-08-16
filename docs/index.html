@@ -320,6 +320,12 @@
         <p class="cmd"><code>dsh plugin --profile web add "github:vvlife/whalehub-dsh#main&amp;path:/plugin"</code></p>
       </div>
       <div class="feat">
+        <div class="feat-icon">🗂</div>
+        <h3>技能管理</h3>
+        <p>装上 <a href="https://github.com/vvlife/dsh-skill-manager">dsh-skill-manager</a> 插件（一条命令），「设置」多出「🧩 技能管理」面板：卡片式浏览全局/项目级 skills，<b>新建 / 编辑 / 删除 / 导入</b>一步到位；另带「🐋 ClawHub」市场 tab，从 GitHub 社区仓库一键安装技能。</p>
+        <p class="cmd"><code>dsh plugin --profile web add github:vvlife/dsh-skill-manager</code></p>
+      </div>
+      <div class="feat">
         <div class="feat-icon">👁</div>
         <h3>内置预览</h3>
         <p>Web 界面自带工作区文件预览：agent 写的 HTML 页面（游戏、交互页都行）直接在侧边栏跑起来，改完刷新即看，不用离开对话。</p>
@@ -424,7 +430,7 @@
     <div class="faq">
       <details><summary>DMG 为什么有 350MB？</summary><p>零前置依赖的代价：Node 运行时、完整 dsh、完整 Paseo（含 Apple Silicon / Intel 双架构原生模块）都在包里。换来不需要预装任何东西，也绝不污染你本机的开发环境。</p></details>
       <details><summary>手机怎么连？</summary><p>Web 界面右上角手机图标 →「生成配对二维码」→ 手机 Paseo App 扫码（或打开配对链接），经 Paseo 官方 relay 直连本 APP 的内置服务，端到端加密。退出 APP 后服务默认保持运行，移动端可继续连接。若提示超时，点「刷新配对码」立刻重扫。</p></details>
-      <details><summary>插件市场 / 发布公网 / 免 Key 搜索是内置的吗？</summary><p>dsh 的插件体系是 APP 完整内置的；「插件市场 Tab」由 WhaleHub 市场插件提供，「部署分享按钮」由 dsh-deploy-share 插件提供，「免 Key web_search」由本仓库自带的 dsh-web-search-free 插件提供——都是一条 <span class="inline-code">dsh plugin add</span> 命令装好（命令见上方特性卡片），装完重启 Web 界面即得图形化体验。</p></details>
+      <details><summary>插件市场 / 发布公网 / 免 Key 搜索是内置的吗？</summary><p>dsh 的插件体系是 APP 完整内置的；「插件市场 Tab」由 WhaleHub 市场插件提供，「部署分享按钮」由 dsh-deploy-share 插件提供，「免 Key web_search」由本仓库自带的 dsh-web-search-free 插件提供，「技能管理面板」由 dsh-skill-manager 插件提供——都是一条 <span class="inline-code">dsh plugin add</span> 命令装好（命令见上方特性卡片），装完重启 Web 界面即得图形化体验。</p></details>
       <details><summary>“DeepSeek 登录”是什么形式？</summary><p>DeepSeek API 没有账号 OAuth。去 platform.deepseek.com 登录账号、创建 API Key，粘贴到 Web 界面的「模型」设置即可。Key 只存本机 APP 私有的 <span class="inline-code">.credentials.yaml</span>（0600）。</p></details>
       <details><summary>会动我本地的 dsh / Paseo 吗？</summary><p>不会。APP 用私有 home 与独立端口（避开 6767），与 <span class="inline-code">~/.dsh</span>、<span class="inline-code">~/.paseo</span> 完全无关，你已有的实例照常运行。</p></details>
       <details><summary>DMG 被 Gatekeeper 拦怎么办？</summary><p>APP 未做 Apple 公证。右键 → 打开；或系统设置 → 隐私与安全性 → 仍要打开；或 <span class="inline-code">xattr -d com.apple.quarantine /Applications/"DeepSeek Harness Desktop.app"</span>。介意的话可用上面的 curl 命令，不触发 Gatekeeper。</p></details>

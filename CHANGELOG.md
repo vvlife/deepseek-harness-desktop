@@ -2,6 +2,11 @@
 
 本文件按版本记录变更。GitHub Release 的发布说明会自动取**最新版本**一节（由 `dmg.yml` 抽取），无需手动粘贴。
 
+## [v0.3.9] - 2026-08-16
+
+### 新增
+- 接入 [dsh-skill-manager](https://github.com/vvlife/dsh-skill-manager) 插件：Web 界面「设置」新增「🧩 技能管理」面板，浏览 / 新建 / 编辑 / 删除 / 导入全局与项目级 skills，另带「🐋 ClawHub」市场 tab 一键安装社区技能。README / 宣传站同步更新。
+
 ## [v0.3.8] - 2026-08-15
 
 ### 修复

@@ -17,9 +17,9 @@
 
 > **一句话**：从安装、出门遥控 agent，到把作品发上公网——每一步都只要点一下。
 
-| ⚡ 0 前置依赖 | 📱 2 端实时同步 | 🧩 66+ 社区插件 | 🚀 1 键发布公网 |
-|---|---|---|---|
-| 拖进应用程序即用 | 桌面 ↔ 手机对话镜像 | 市场内一键安装 | 免账号，拿到链接即分享 |
+| ⚡ 0 前置依赖 | 📱 2 端实时同步 | 🧩 66+ 社区插件 | 🚀 1 键发布公网 | 🗂 技能管理 |
+|---|---|---|---|---|
+| 拖进应用程序即用 | 桌面 ↔ 手机对话镜像 | 市场内一键安装 | 免账号，拿到链接即分享 | 全局 / 项目级 skills 集中管理 |
 
 ## 六大特性
 
@@ -52,6 +52,17 @@ dsh plugin --profile web add "github:vvlife/whalehub-dsh#main&path:/plugin"
 ```
 
 <p><img src="docs/images/shot-plugin-market.png" width="72%" alt="Web 界面内置的 WhaleHub 插件市场"></p>
+
+### 🗂 技能管理：全局 / 项目级 skills 集中管理
+
+装上 [dsh-skill-manager](https://github.com/vvlife/dsh-skill-manager) 插件（一条命令），Web 界面的
+「设置」就多出「🧩 技能管理」面板：卡片式**浏览**全局（`~/.dsh/skills/`）与项目级
+（`.agents/skills/`、`.claude/skills/`）skills，**新建 / 编辑 / 删除 / 导入**（符号链接或拷贝）一步到位；
+另带「🐋 ClawHub」市场 tab，从 GitHub 社区仓库浏览并一键安装技能：
+
+```sh
+dsh plugin --profile web add github:vvlife/dsh-skill-manager
+```
 
 ### 👁 内置预览：HTML / 文件即点即看
 
@@ -86,7 +97,7 @@ dsh plugin --profile web add "github:vvlife/deepseek-harness-desktop#main&path:/
 想改回官方搜索，卸载插件即可。插件零依赖，自测见 `plugin/test.mjs`
 （离线 fixture + 在线实测）。
 
-> 🖥 **双界面切换**（Mobile / Web 常驻不重载）· 🔌 **提供商可选**（DeepSeek 官方 / Agnes / OpenAI 兼容端点）· 🛡 **环境隔离**（私有 home + 独立端口，不碰 `~/.dsh` / `~/.paseo`）· 🧪 **构建即自测**（每个 DMG 真起服务全链路断言，全绿才发布）
+> 🖥 **双界面切换**（Mobile / Web 常驻不重载）· 🔌 **提供商可选**（DeepSeek 官方 / Agnes / OpenAI 兼容端点）· 🛡 **环境隔离**（私有 home + 独立端口，不碰 `~/.dsh` / `~/.paseo`）· 🗂 **技能管理**（全局 / 项目级 skills 集中管理 + ClawHub 市场）· 🧪 **构建即自测**（每个 DMG 真起服务全链路断言，全绿才发布）
 
 > A self-contained macOS app bundling a universal Node runtime + full Paseo
 > (daemon, Web UI, mobile pairing) + full DeepSeek Harness as a Paseo provider
