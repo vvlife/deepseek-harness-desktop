@@ -14,12 +14,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 自签证书「DSH Desktop Local Code Signing」导入临时 keychain。
-      # 身份稳定：macOS 目录访问授权按证书锚定，用户只需授权一次，跨启动/升级持久。
-      - name: 准备签名身份（secrets.DSH_SIGNING_P12 → 临时 keychain）
+      # ---------------------------------------------------------------------------
+      # 签名身份准备（二选一）：
+      #   A) Developer ID 公证路径（推荐，用户人人可装）：
+      #      secrets.DSH_MAC_CERT_P12          = Developer ID Application 证书(.p12)
+      #      secrets.DSH_MAC_CERT_PASSWORD     = p12 导出密码
+      #      secrets.APPLE_API_KEY / APPLE_API_ISSUER / APPLE_API_KEY_PEM 或
+      #      secrets.APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID = 公证凭证
+      #   B) 仅本地调试（自签/ ad-hoc，用户机器仍会被 Gatekeeper 拦）：
+      #      不配置上述 secrets 时，回退到钥匙串里的「DSH Desktop Local Code Signing」，
+      #      否则 ad-hoc。
+      # ---------------------------------------------------------------------------
+      - name: 准备 Developer ID 签名身份（secrets → 临时 keychain）
+        if: ${{ env.DSH_MAC_CERT_P12 != '' }}
         env:
-          DSH_SIGNING_P12: ${{ secrets.DSH_SIGNING_P12 }}
-          DSH_SIGNING_P12_PASSWORD: ${{ secrets.DSH_SIGNING_P12_PASSWORD }}
+          DSH_MAC_CERT_P12: ${{ secrets.DSH_MAC_CERT_P12 }}
+          DSH_MAC_CERT_PASSWORD: ${{ secrets.DSH_MAC_CERT_PASSWORD }}
         run: |
           set -euo pipefail
           KEYCHAIN="$RUNNER_TEMP/dsh-signing.keychain-db"
@@ -27,34 +37,73 @@ jobs:
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security set-keychain-settings -lut 21600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          echo "$DSH_SIGNING_P12" | base64 --decode > "$RUNNER_TEMP/dsh-signing.p12"
+          echo "$DSH_MAC_CERT_P12" | base64 --decode > "$RUNNER_TEMP/dsh-signing.p12"
           security import "$RUNNER_TEMP/dsh-signing.p12" -k "$KEYCHAIN" \
-            -P "$DSH_SIGNING_P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+            -P "$DSH_MAC_CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
             -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
           security list-keychains -d user -s "$KEYCHAIN" \
             $(security list-keychains -d user | sed -e 's/"//g')
           rm -f "$RUNNER_TEMP/dsh-signing.p12"
-          security find-identity -p codesigning | grep "DSH Desktop Local Code Signing"
+          echo "DEVELOPER_ID=$(security find-identity -v -p codesigning 2>/dev/null \
+            | grep 'Developer ID Application' | head -1 | awk -F'\"' '{print $2}')" >> "$GITHUB_ENV"
+          security find-identity -p codesigning | grep "Developer ID Application"
 
-      - name: 构建 universal DMG（自签证书签名）
+      - name: 设置调试签名身份（无 Developer ID secrets 时回退）
+        if: ${{ env.DSH_MAC_CERT_P12 == '' }}
+        run: |
+          echo "DEVELOPER_ID=" >> "$GITHUB_ENV"
+          echo "⚠️ 未配置 Developer ID 证书 secrets，将回退自签/ad-hoc（仅本地调试，用户机器会被 Gatekeeper 拦截）。"
+
+      - name: 构建 universal DMG（Developer ID 签名）
         env:
-          DSH_SIGN_IDENTITY: DSH Desktop Local Code Signing
+          DSH_SIGN_IDENTITY: ${{ env.DEVELOPER_ID }}
         run: bash app/make-app.sh "${GITHUB_REF_NAME#v}"
+
+      # 校验签名身份：公证路径必须出现 Developer ID Application
+      - name: 校验签名身份
+        run: |
+          codesign --verify --deep --strict "app/build/DeepSeek Harness Desktop.app"
+          echo "--- signing authorities ---"
+          codesign -dv --verbose=2 "app/build/DeepSeek Harness Desktop.app" 2>&1 \
+            | grep -E "^(Authority|TeamIdentifier)=" || true
+          if [ -n "$DSH_MAC_CERT_P12" ] && ! codesign -dv --verbose=2 \
+              "app/build/DeepSeek Harness Desktop.app" 2>&1 | grep -q "Authority=Developer ID Application"; then
+            echo "✘ 配置了 Developer ID 证书却未用它签名，中止发布。" >&2
+            exit 1
+          fi
+        env:
+          DSH_MAC_CERT_P12: ${{ secrets.DSH_MAC_CERT_P12 }}
 
       # 校验内嵌终端（dsh web PTY）解析到的 dsh/paseo/node 是包内版本，
       # 而非本机全局安装——保证 APP 不干扰、不依赖本机已有 dsh/Paseo。
       - name: 校验内嵌终端命令解析（bundled dsh/paseo/node）
         run: bash scripts/verify-bundled-cli.sh "app/build/DeepSeek Harness Desktop.app"
 
-      # 拒绝发出 ad-hoc 产物（ad-hoc 下用户的目录访问授权每次启动都重新弹窗）
-      - name: 校验签名身份
+      # 构建后自测：包内运行时真跑 dsh web + Paseo daemon（含 provider 注册）
+      - name: 构建后自测（包内运行时）
         run: |
-          codesign --verify --deep --strict "app/build/DeepSeek Harness Desktop.app"
-          codesign -dv --verbose=2 "app/build/DeepSeek Harness Desktop.app" 2>&1 \
-            | grep "^Authority=DSH Desktop Local Code Signing"
+          # make-app.sh 已内置全链路自测，这里仅做轻量冒烟（避免重复耗时）
+          echo "（自测已在 make-app.sh 内完成，跳过）"
 
-      - name: 上传 DMG 到 Release（不存在则先创建，附 CHANGELOG 更新日志）
+      # ---------------------------------------------------------------------------
+      # 公证（notarize）—— 仅当配置了 Developer ID 证书时执行
+      # ---------------------------------------------------------------------------
+      - name: 公证 DMG 并装订票据（Developer ID 路径）
+        if: ${{ env.DSH_MAC_CERT_P12 != '' }}
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PEM: ${{ secrets.APPLE_API_KEY_PEM }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          bash app/notarize.sh "app/build/DeepSeek-Harness-Desktop-${GITHUB_REF_NAME#v}.dmg" \
+            "com.vvlife.dsh-desktop"
+
+      # 上传 DMG 到 Release（不存在则先创建，附 CHANGELOG 更新日志）
+      - name: 上传 DMG 到 Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

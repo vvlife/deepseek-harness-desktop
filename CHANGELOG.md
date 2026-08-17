@@ -4,6 +4,15 @@
 
 ## [v0.3.9] - 2026-08-16
 
+### 修复（重要：安装拦截）
+- **DMG 安装拦截修复**：旧版本用构建机自签名证书（`DSH Desktop Local Code Signing`）签名且
+  未做 Apple 公证，导致所有下载用户被 Gatekeeper 拦截（"无法验证是否包含恶意软件"）。
+  新版本改用 **Developer ID Application** 证书签名（hardened runtime + 可信时间戳），并由
+  `app/notarize.sh` 自动提交 Apple 公证、装订票据。下载即装，不再弹安全警告。
+- 配套新增 `app/entitlements.plist`（放行内嵌 node / node-pty 的 fork+exec 与网络访问）、
+  改造 `app/make-app.sh` 签名段与 `.github/workflows/dmg.yml`（从 secrets 注入 Developer ID
+  证书与公证凭证）。详见 `app/notarize.sh` 头部注释与 README「发布前准备」。
+
 ### 新增
 - 接入 [dsh-skill-manager](https://github.com/vvlife/dsh-skill-manager) 插件：Web 界面「设置」新增「🧩 技能管理」面板，浏览 / 新建 / 编辑 / 删除 / 导入全局与项目级 skills，另带「🐋 ClawHub」市场 tab 一键安装社区技能。README / 宣传站同步更新。
 

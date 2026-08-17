@@ -116,7 +116,13 @@ if ! node_ok; then
       find_brew || die "装完 Homebrew 后仍找不到 brew，请新开终端重跑"
       brew install node || die "Node 安装失败"
     else
-      die "无交互终端，无法引导安装 Homebrew；请手动安装 Node ≥22.19 后重跑"
+      # 无交互终端（Agent / CI / SSH）：自动非交互安装 Homebrew + Node
+      warn "无交互终端：自动以非交互方式安装 Homebrew + Node（Agent / CI 友好）"
+      NONINTERACTIVE=1 /bin/bash -c \
+        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+        || die "Homebrew 安装失败（请手动安装 Node ≥22.19 后重跑）"
+      find_brew || die "装完 Homebrew 后仍找不到 brew，请新开终端重跑"
+      brew install node || die "Node 安装失败"
     fi
   fi
   node_ok || die "Node ≥22.19 仍不可用"

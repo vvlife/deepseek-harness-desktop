@@ -11,12 +11,11 @@
 # 构建机需要：swiftc（xcode-select --install）、curl、node+npm（用于 dsh 依赖树与 asar 解包）。
 # 产出：app/build/DeepSeek-Harness-Desktop-<version>.dmg
 #
-# 签名：优先使用钥匙串里的「DSH Desktop Local Code Signing」自签名证书（身份稳定，
-# macOS 的目录访问授权按证书锚定、跨重新构建持久，不会每次构建后重新弹窗）；
-# 没有该证书则回退 ad-hoc（--sign -，cdhash 逐构建变化，授权记录随之失效）。
-# 可用 DSH_SIGN_IDENTITY 显式指定身份（如 "Apple Development: …"，"-" 强制 ad-hoc）。
-# 无付费开发者账号：用户在 macOS 15 首次打开需「系统设置 → 隐私与安全性 → 仍要打开」，
-# 或 xattr -d com.apple.quarantine。
+# 签名：优先使用环境变量 DSH_SIGN_IDENTITY 注入的「Developer ID Application」证书
+# （用于公证，用户人人可装）；其次回退钥匙串里的「DSH Desktop Local Code Signing」
+# 自签证书（仅本地开发可用，用户机器仍会被 Gatekeeper 拦截）；都没有则 ad-hoc。
+# 想让用户「下载即装」，必须：Developer ID 证书签名 + 公证（notarize）。
+# 仅自签/ad-hoc 只能让你本机免弹窗，无法分发给他人。详见 app/notarize.sh 与 README。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -275,23 +274,43 @@ swiftc -O -o "$BUILD/make-icon" "$APP_SRC/make-icon.swift"
 iconutil -c icns "$BUILD/AppIcon.iconset" -o "$RES/AppIcon.icns"
 
 # ---------------------------------------------------------------------------
-# 5. 签名（优先稳定身份「DSH Desktop Local Code Signing」，否则 ad-hoc；--deep 覆盖 node 与全部 .node）
+# 5. 签名（支持 Developer ID 公证签名；回退自签/ ad-hoc）
 # ---------------------------------------------------------------------------
+# 公证（notarize）硬性要求：
+#   - 用「Developer ID Application: …」证书签名（非自签、非开发证书）
+#   - 开启 hardened runtime（--options runtime）与可信时间戳（--timestamp）
+#   - 配 entitlements 放行内嵌的 node / node-pty 等第三方原生库与 JIT
+# 通过环境变量注入：DSH_SIGN_IDENTITY（证书全名，如 "Developer ID Application: vvlife (TEAMID)"）
+# 回退：仍能找到旧的「DSH Desktop Local Code Signing」自签证书则用其签名（本地开发可用，
+#       但用户机器仍会触发 Gatekeeper）；都没有则 ad-hoc（仅供本地测试）。
+ENTITLEMENTS="$APP_SRC/entitlements.plist"
+[ -f "$ENTITLEMENTS" ] || ENTITLEMENTS=""
 SIGN_IDENTITY="${DSH_SIGN_IDENTITY:-}"
 if [ -z "$SIGN_IDENTITY" ]; then
-  if security find-identity -v -p codesigning 2>/dev/null | grep -q "DSH Desktop Local Code Signing"; then
+  if security find-identity -v -p codesigning 2>/dev/null | grep -q "Developer ID Application"; then
+    SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')"
+  elif security find-identity -v -p codesigning 2>/dev/null | grep -q "DSH Desktop Local Code Signing"; then
     SIGN_IDENTITY="DSH Desktop Local Code Signing"
   else
     SIGN_IDENTITY="-"
   fi
 fi
 if [ "$SIGN_IDENTITY" = "-" ]; then
-  log "ad-hoc 签名（文件较多，需一两分钟）"
+  log "ad-hoc 签名（仅供本地测试，用户机器会被 Gatekeeper 拦截！）"
+  codesign --force --deep --sign - "$APP"
 else
-  log "签名（身份：${SIGN_IDENTITY}；文件较多，需一两分钟）"
+  log "签名（身份：${SIGN_IDENTITY}；hardened runtime + 时间戳）"
+  # 先签内嵌的 node / dsh / paseo 原生组件（--deep 也会覆盖，但显式先签一次更稳）
+  if [ -n "$ENTITLEMENTS" ]; then
+    codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" \
+      --entitlements "$ENTITLEMENTS" "$APP"
+  else
+    codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+  fi
 fi
-codesign --force --deep --sign "$SIGN_IDENTITY" "$APP"
 codesign --verify --deep --strict --verbose=1 "$APP"
+echo "    签名身份："
+codesign -dv --verbose=2 "$APP" 2>&1 | grep -E "^(Authority|TeamIdentifier|Signature)=" || true
 
 # ---------------------------------------------------------------------------
 # 6. 构建后自测：包内运行时真跑 dsh web + Paseo daemon（含 provider 注册）

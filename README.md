@@ -21,6 +21,38 @@
 |---|---|---|---|---|
 | 拖进应用程序即用 | 桌面 ↔ 手机对话镜像 | 市场内一键安装 | 免账号，拿到链接即分享 | 全局 / 项目级 skills 集中管理 |
 
+## 快速开始（Quick Start）
+
+### 一行安装（推荐给 Agent / CI / 无图形界面）
+
+`install.sh` 走命令行路径，**不下载 DMG、不触发 Gatekeeper**，最适合自动化环境：
+
+```sh
+# 最小安装（不配置 key，稍后在 dsh web 里填）
+curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/main/install.sh | bash -s -- --yes --skip-auth
+
+# 带 DeepSeek key 直接装好 provider
+curl -fsSL https://raw.githubusercontent.com/vvlife/deepseek-harness-desktop/main/install.sh | bash -s -- --provider deepseek --key sk-xxxx --yes
+```
+
+脚本会自动补齐 Node ≥22.19（经 Homebrew）、安装 dsh 与 Paseo、部署零依赖 ACP 桥并把
+「DeepSeek Harness」注册为 Paseo provider，最后跑冒烟自检。完成后在 Paseo（启动台或
+`open -a Paseo`）里新建 agent 选「DeepSeek Harness」即可。
+
+> **Agent 友好**：加 `--yes` 即非交互；首次安装若本机没有 Node，脚本会**自动以非交互方式
+> 安装 Homebrew + Node**，无需人工值守。也可用 `--provider agnes|custom`、`--base-url`、
+> `--model`、`--env-name` 等参数透传给 provider 配置。
+
+### 图形化安装（人类，DMG 已公证）
+
+1. 下载 [最新 DMG](https://github.com/vvlife/deepseek-harness-desktop/releases/latest)
+2. 打开拖进「应用程序」
+3. 双击打开即用（Developer ID 签名 + Apple 公证，无安全弹窗）
+
+### 本地开发构建
+
+见文末「[本地开发与自签名](#本地开发与自签名)」。
+
 ## 六大特性
 
 ### 🚀 一站式安装：拖进「应用程序」，双击，完
@@ -110,8 +142,8 @@ dsh plugin --profile web add "github:vvlife/deepseek-harness-desktop#main&path:/
 
 1. 下载 [DeepSeek-Harness-Desktop-0.3.8.dmg](https://github.com/vvlife/deepseek-harness-desktop/releases/latest/download/DeepSeek-Harness-Desktop-0.3.8.dmg)（约 350MB，universal）
 2. 打开 DMG，把 **DeepSeek Harness Desktop** 拖进 **Applications**
-3. 双击打开。未做 Apple 公证：macOS 15 首次打开需右键 → 打开，
-   或「系统设置 → 隐私与安全性 → 仍要打开」
+3. 双击打开即可（已用 Developer ID 签名并经过 Apple 公证，不会触发 Gatekeeper 拦截）。
+   若个别系统仍提示，请先在「系统设置 → 隐私与安全性」确认，或右键 → 打开。
 
 打开后 APP 会启动内置 Paseo daemon（127.0.0.1 独立端口）并在窗口里显示 Paseo Web UI，
 「DeepSeek Harness」provider 已自动注册好。新建 agent 时选择它即可。
@@ -274,9 +306,65 @@ APP 固定 serverId 并在身份变化时自动重置 Web UI 本地数据；旧�
 
 **本地构建 DMG？** `app/make-app.sh`（swiftc 直编 SwiftUI + Node 官方 dist lipo 合并 +
 npm 双架构 dsh 依赖树合并 + Paseo 官方 DMG 解包双架构合并 + 签名 + 全链路自测 + hdiutil）。
-签名优先使用钥匙串中的自签证书「DSH Desktop Local Code Signing」（身份稳定，macOS 的
-目录访问授权按证书锚定、跨启动与重新构建持久）；没有该证书时回退 ad-hoc（授权记录无法
-匹配，每次启动都会重新弹「访问文稿文件夹」授权框）。
+默认用环境变量 `DSH_SIGN_IDENTITY` 注入的「Developer ID Application」证书做 hardened runtime
+签名，随后由 `app/notarize.sh` 提交 Apple 公证（用户人人可装）。未配置 Developer ID 证书时
+回退到钥匙串里的自签证书「DSH Desktop Local Code Signing」或 ad-hoc（仅供本机调试，他人
+下载仍会被 Gatekeeper 拦截——上一个未公证版本即是此情况）。
+
+**发布前准备（一次性）：** 在仓库 `Settings → Secrets and variables → Actions` 配置
+`DSH_MAC_CERT_P12` / `DSH_MAC_CERT_PASSWORD`（Developer ID Application 证书），以及公证凭证
+`APPLE_API_KEY`+`APPLE_API_ISSUER`+`APPLE_API_KEY_PEM` 或 `APPLE_ID`+`APPLE_APP_SPECIFIC_PASSWORD`
++`APPLE_TEAM_ID`。详见 `app/notarize.sh` 头部注释。
+
+## 本地开发与自签名
+
+### 为什么需要「自签名」
+
+未加入 Apple Developer Program（$99/年）时，拿不到 **Developer ID Application** 证书，
+也就无法做 Apple 公证。此时本地构建可用一把**自签名证书** `DSH Desktop Local Code Signing`
+签名，让 app 在本机直接运行（macOS 的目录访问授权按证书锚定，跨重新构建持久）。
+
+⚠️ **自签名证书只在本机有效**：它没经过 Apple 信任链，分发到他人机器会被 Gatekeeper 拦截
+（"无法验证是否包含恶意软件"）。要"人人下载都能装"，必须走 Developer ID 签名 + 公证
+（见上文「发布前准备」）。自签名**仅用于本地开发调试**，不是发布手段。
+
+### 1. 创建自签证书（一次）
+
+**方式 A · 钥匙串访问（GUI）**
+1. 打开「钥匙串访问」→ 菜单「证书助理」→「创建证书…」
+2. 名称填 `DSH Desktop Local Code Signing`，身份类型选「代码签名」，证书类型「自签名根证书」
+3. 一路继续到创建完成
+4. 双击该证书 →「信任」→「代码签名」设为「始终信任」
+
+**方式 B · 命令行**
+```sh
+CERT="DSH Desktop Local Code Signing"
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=$CERT"
+openssl pkcs12 -export -out dsh-local.p12 -inkey key.pem -in cert.pem -passout pass:changeit
+security import dsh-local.p12 -k ~/Library/Keychains/login.keychain-db -P changeit
+sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain cert.pem
+```
+
+### 2. 构建
+
+```sh
+bash app/make-app.sh          # 自动找到 DSH Desktop Local Code Signing 并签名
+# 或显式指定身份
+DSH_SIGN_IDENTITY="DSH Desktop Local Code Signing" bash app/make-app.sh
+```
+产物：`app/build/DeepSeek-Harness-Desktop-<ver>.dmg`。
+
+### 3. 在本机运行自签构建（绕过 Gatekeeper）
+
+自签 app 首次打开会被拦，本机调试时去掉 quarantine 即可：
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness Desktop.app"
+# 或一次性放行（仅本机）：spctl --add "/Applications/DeepSeek Harness Desktop.app"
+# 也可从「系统设置 → 隐私与安全性 → 仍要打开」点一次
+```
+
+> 这些步骤**只对当前这台机器**有效，不能让他人免拦截——那是 Developer ID + 公证的职责。
 
 ## 许可
 
